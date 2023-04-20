@@ -90,5 +90,7 @@ def get_reference_chain(llm, verbose=False) -> LLMChain:
     return chain
 
 
-def get_checker_chain(llm):
-    pass
+def get_veracity_chain(llm, verbose=False) -> LLMChain:
+    prompt = get_veracity_prompt()
+    chain = LLMChain(llm=llm, prompt=prompt, verbose=verbose)
+    return chain
