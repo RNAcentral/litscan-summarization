@@ -1,11 +1,12 @@
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import polars as pl
 import os
+import typing as ty
+
 import matplotlib.pyplot as plt
 import numpy as np
-import typing as ty
+import polars as pl
+import psycopg2
 import torch
+from psycopg2.extras import RealDictCursor
 from scipy.optimize import linear_sum_assignment
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
@@ -20,7 +21,7 @@ import tiktoken
 enc = tiktoken.get_encoding("cl100k_base")
 
 QUERY = """select result_id, (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
-				(array_agg( DISTINCT lsr.job_id))[1] as job_id, 
+				(array_agg( DISTINCT lsr.job_id))[1] as job_id,
 				(array_agg(sentence))[1] as sentence
 from embassy_rw.litscan_body_sentence lsb
 join embassy_rw.litscan_result lsr on lsr.id = lsb.result_id
@@ -28,9 +29,9 @@ join embassy_rw.litscan_database lsdb on lsdb.job_id = lsr.job_id
 join embassy_rw.litscan_article lsa on lsa.pmcid = lsr.pmcid
 where name in ('pombase', 'hgnc', 'wormbase', 'mirbase')
 and retracted = false
-and lsr.job_id not in ('12s', '12s rrna', '12 s rrna', 
-                       '13a', '16s', '16s rna', 
-                       '16srrna', '16s rrna', 
+and lsr.job_id not in ('12s', '12s rrna', '12 s rrna',
+                       '13a', '16s', '16s rna',
+                       '16srrna', '16s rrna',
                        '2a-1', '2b-2', '45s pre-rrna', '7sk',
                        '7sk rna', '7sk snrna', '7slrna',
                        '7sl rna', 'trna', 'snrna', 'mpa', 'msa', 'rns', 'tran')
@@ -45,8 +46,8 @@ def get_token_length(sentences):
 
 
 def iterative_sentence_selector(row, token_limit=2048):
-    sentences = row['sentence']
-    rna_id = row['job_id']
+    sentences = row["sentence"]
+    rna_id = row["job_id"]
     ## If we don't have enough, return all
     if sum(get_token_length(sentences)) <= token_limit:
         print(f"Few tokens for {rna_id}, using all sentences")
@@ -77,12 +78,16 @@ def iterative_sentence_selector(row, token_limit=2048):
             print(f"More than 2 communities for {rna_id}, using their centroids")
             return selected_sentence_idxs
         else:
-            print(f"Too few communities for {rna_id}, sampling from them in order until token limit")
+            print(
+                f"Too few communities for {rna_id}, sampling from them in order until token limit"
+            )
             ## round-robin grabbing of sentences until we hit the limit
             com_idx = 0
             while sum(get_token_length(selected_sentences_clustering)) < token_limit:
                 if len(communities[com_idx]) > 0:
-                    selected_sentence_idxs.append(communities[com_idx].pop(0)) ## Should repeatedly remove the first sentence in each community
+                    selected_sentence_idxs.append(
+                        communities[com_idx].pop(0)
+                    )  ## Should repeatedly remove the first sentence in each community
                     selected_sentences_clustering = sentences[selected_sentence_idxs]
                 else:
                     break
@@ -92,10 +97,11 @@ def iterative_sentence_selector(row, token_limit=2048):
             ## pop the last one, since by definition we went over by including it
             selected_sentence_idxs.pop()
 
-            return selected_sentence_idxs        
+            return selected_sentence_idxs
 
-
-    print(f"Using greedy selection algorithm for {rna_id}. Only works on cluster centres.")
+    print(
+        f"Using greedy selection algorithm for {rna_id}. Only works on cluster centres."
+    )
 
     ## If we're here, there are still too many tokens in the selection. Now we need to optimize for diversity and token count
     ## Use a greedy algorithm on the cluster centres, start with the first because it should be the largest cluster
@@ -204,7 +210,7 @@ def get_sentences_for_summary() -> pl.DataFrame:
     sentence_df = get_sentences()
     sentence_df = tokenize_and_count(sentence_df)
     sentence_df.write_json("all_available_sentences.json")
-    
+
     sample_df = sample_sentences(sentence_df)
 
     return sample_df.select(["job_id", "selected_pmcids", "selected_sentences"])
