@@ -4,7 +4,11 @@ from pathlib import Path
 import click
 import polars as pl
 
-from chains.summarization import get_reference_chain, get_summarizer_chain
+from chains.summarization import (
+    get_reference_chain,
+    get_summarizer_chain,
+    get_veracity_chain,
+)
 from llm_abstraction.models import get_model
 from sentence_selection.pull_intro_sentences import get_sentences_for_summary
 from utils.context import build_context
@@ -30,6 +34,10 @@ def generate_summary(
         verbose=True,
     )
     reference_chain = get_reference_chain(
+        get_model(model_name, {"presence_penalty": 0, "frequency_penalty": 0}),
+        verbose=True,
+    )
+    veracity_chain = get_veracity_chain(
         get_model(model_name, {"presence_penalty": 0, "frequency_penalty": 0}),
         verbose=True,
     )
