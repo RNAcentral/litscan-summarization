@@ -32,10 +32,10 @@ def get_summarizer_prompt() -> ChatPromptTemplate:
 
 def get_revision_prompt() -> ChatPromptTemplate:
     revision_context = (
-        "Given the summary, and its original context, rewrite the summary to include references at the end of each sentence. "
-        "References are provided in the original context, enclosed in []."
-        "Summary: {summary}\n"
-        "Original context:\n{context_str}\n"
+        "Given the following summary:\n{summary}\n"
+        "and its original context: \n{context_str}\n"
+        "rewrite the summary to include at least one reference at the end of each sentence. "
+        "References are provided in the original context, enclosed in [].\n"
         "Revised Summary: "
     )
 
@@ -63,7 +63,7 @@ def get_veracity_prompt() -> ChatPromptTemplate:
         "The summary was derived from the following context:\n"
         "{original_context}\n"
         "For each statement, determine whether it is true or false, based on whether there is supporting evidence in the context. "
-        "If it is false, explain why.\n\n"
+        "Make a determination for all statements, If a statement is false, explain why.\n\n"
     )
 
     system_prompt = SystemMessagePromptTemplate.from_template(
@@ -71,6 +71,26 @@ def get_veracity_prompt() -> ChatPromptTemplate:
     )
 
     human_prompt = HumanMessagePromptTemplate.from_template(veracity_context)
+
+    chat_prompt = ChatPromptTemplate.from_messages([system_prompt, human_prompt])
+
+    return chat_prompt
+
+
+def get_veracity_revision_prompt() -> ChatPromptTemplate:
+    """
+    Uses the summary and the veracity check output to refine the summary. This shouldn't need the context I don't think, since the reasoning
+    for claims made in the veracity check should be in the returned veracity statement.
+
+    """
+    system_prompt = SystemMessagePromptTemplate.from_template(system_instruction)
+    veracity_revision_context = (
+        "{checked_assertions}\n\n"
+        "In light of the above checks about its veracity, refine the summary below to ensure all statements are true.\n"
+        "Original summary: \n{summary}\n"
+        "Revised summary:\n"
+    )
+    human_prompt = HumanMessagePromptTemplate.from_template(veracity_revision_context)
 
     chat_prompt = ChatPromptTemplate.from_messages([system_prompt, human_prompt])
 
@@ -92,5 +112,11 @@ def get_reference_chain(llm, verbose=False) -> LLMChain:
 
 def get_veracity_chain(llm, verbose=False) -> LLMChain:
     prompt = get_veracity_prompt()
+    chain = LLMChain(llm=llm, prompt=prompt, verbose=verbose)
+    return chain
+
+
+def get_veracity_revision_chain(llm, verbose=False) -> LLMChain:
+    prompt = get_veracity_revision_prompt()
     chain = LLMChain(llm=llm, prompt=prompt, verbose=verbose)
     return chain
