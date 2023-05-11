@@ -20,6 +20,8 @@ import tiktoken
 
 enc = tiktoken.get_encoding("cl100k_base")
 
+import sentence_selection.with_location
+
 QUERY = """select result_id, (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
 				(array_agg( DISTINCT lsr.job_id))[1] as job_id,
 				(array_agg(sentence))[1] as sentence
@@ -45,7 +47,7 @@ def get_token_length(sentences):
     return [len(enc.encode(s)) for s in sentences]
 
 
-def iterative_sentence_selector(row, token_limit=2048):
+def iterative_sentence_selector(row, token_limit=3072):
     sentences = row["sentence"]
     rna_id = row["job_id"]
     ## If we don't have enough, return all
@@ -188,7 +190,7 @@ def get_sentences():
 
     lengths = filtered.select(pl.col("result_id").arr.lengths()).to_numpy().flatten()
     print(
-        f"Number of IDs with fewer than 35 articles to summarize: {np.sum(lengths < 25)}"
+        f"Number of IDs with fewer than 35 articles to summarize: {np.sum(lengths < 35)}"
     )
     return filtered
 
@@ -201,16 +203,27 @@ def tokenize_and_count(sentence_df: pl.DataFrame):
         "total", descending=True
     )
     print(
-        f"Number of RNAs with fewer than 2048 total tokens: {df.filter(pl.col('total').lt(2048)).height}"
+        f"Number of RNAs with fewer than 3072 total tokens: {df.filter(pl.col('total').lt(3072)).height}"
     )
     return df
 
 
-def get_sentences_for_summary() -> pl.DataFrame:
-    sentence_df = get_sentences()
-    sentence_df = tokenize_and_count(sentence_df)
-    sentence_df.write_json("all_available_sentences.json")
+def get_sentences_for_summary(method) -> pl.DataFrame:
+    if method == "topic":
+        sentence_df = get_sentences()
+        sentence_df = tokenize_and_count(sentence_df)
+        sentence_df.write_json("all_available_sentences.json")
 
-    sample_df = sample_sentences(sentence_df)
+        sample_df = sample_sentences(sentence_df)
 
-    return sample_df.select(["job_id", "selected_pmcids", "selected_sentences"])
+        return sample_df.select(["job_id", "selected_pmcids", "selected_sentences"])
+    elif method == "intro":
+        sentence_df = with_location.get_sentences()
+        sentence_df = with_location.tokenize_and_count(sentence_df)
+        sentence_df.write_json("all_available_sentences_with_location.json")
+
+        sample_df = sentence_df.filter(pl.col("total").lt(3072)).select(
+            ["job_id", "selected_pmcids", "selected_sentences"]
+        )
+
+        return sample_df
