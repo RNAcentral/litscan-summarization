@@ -1,13 +1,10 @@
 import os
-import typing as ty
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-import psycopg2
 import torch
-from psycopg2.extras import RealDictCursor
-from scipy.optimize import linear_sum_assignment
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
@@ -29,14 +26,15 @@ from embassy_rw.litscan_body_sentence lsb
 join embassy_rw.litscan_result lsr on lsr.id = lsb.result_id
 join embassy_rw.litscan_database lsdb on lsdb.job_id = lsr.job_id
 join embassy_rw.litscan_article lsa on lsa.pmcid = lsr.pmcid
-where name in ('pombase', 'hgnc', 'wormbase', 'mirbase')
+where name in ('pombase', 'hgnc', 'wormbase', 'mirbase', 'snodb', 'tair', 'sgd', 'pdbe', 'genecards', 'gtrnadb', 'mirgenedb', 'refseq', 'rfam', 'zfin' )
 and retracted = false
 and lsr.job_id not in ('12s', '12s rrna', '12 s rrna',
-                       '13a', '16s', '16s rna',
-                       '16srrna', '16s rrna',
+                       '13a', '16s', '16s rna', 'rrna', 'e3', 'e2',
+                       '16srrna', '16s rrna', 'bdnf', 'nmr',
                        '2a-1', '2b-2', '45s pre-rrna', '7sk',
-                       '7sk rna', '7sk snrna', '7slrna',
-                       '7sl rna', 'trna', 'snrna', 'mpa', 'msa', 'rns', 'tran')
+                       '7sk rna', '7sk snrna', '7slrna', 'rnai',
+                       '7sl rna', 'trna', 'snrna', 'mpa', 'msa', 'rns', 'tran',
+                       'mir-21', 'mir-155')
 group by result_id
 
 having cardinality(array_agg(lsb.id)) > 2 and cardinality(array_agg(DISTINCT lsr.job_id)) = 1
@@ -71,58 +69,52 @@ def iterative_sentence_selector(row, token_limit=3072):
     selected_sentence_idxs = [
         c.pop(0) for c in communities
     ]  ## index 0 is the central point in the cluster
+    encodings = encodings.cpu().numpy()
     selected_sentences_clustering = sentences[selected_sentence_idxs]
     selected_embeddings_clustered = encodings[selected_sentence_idxs]
     ## Check total length of selection now
     lengths = get_token_length(selected_sentences_clustering)
+    ## If there aren't too many clusters, this will be true, and we can select from them until we run out of tokens
     if sum(lengths) <= token_limit:
-        if len(communities) > 2:
-            print(f"More than 2 communities for {rna_id}, using their centroids")
-            return selected_sentence_idxs
-        else:
-            print(
-                f"Too few communities for {rna_id}, sampling from them in order until token limit"
-            )
-            ## round-robin grabbing of sentences until we hit the limit
-            com_idx = 0
-            while sum(get_token_length(selected_sentences_clustering)) < token_limit:
-                if len(communities[com_idx]) > 0:
-                    selected_sentence_idxs.append(
-                        communities[com_idx].pop(0)
-                    )  ## Should repeatedly remove the first sentence in each community
-                    selected_sentences_clustering = sentences[selected_sentence_idxs]
-                else:
-                    break
-                com_idx += 1
-                com_idx %= len(communities)
+        print(f"Sampling communities for {rna_id}, until token limit")
+        ## round-robin grabbing of sentences until we hit the limit
+        com_idx = 0
+        while sum(get_token_length(selected_sentences_clustering)) < token_limit:
+            if len(communities[com_idx]) > 0:
+                selected_sentence_idxs.append(
+                    communities[com_idx].pop(0)
+                )  ## Should repeatedly remove the first sentence in each community
+                selected_sentences_clustering = sentences[selected_sentence_idxs]
+            else:
+                break
+            com_idx += 1
+            com_idx %= len(communities)
 
-            ## pop the last one, since by definition we went over by including it
-            selected_sentence_idxs.pop()
+        ## pop the last one, since by definition we went over by including it
+        selected_sentence_idxs.pop()
 
-            return selected_sentence_idxs
+        return selected_sentence_idxs
 
+    print(f"{rna_id} has too many clusters to use round-robin selection")
     print(
         f"Using greedy selection algorithm for {rna_id}. Only works on cluster centres."
     )
 
     ## If we're here, there are still too many tokens in the selection. Now we need to optimize for diversity and token count
     ## Use a greedy algorithm on the cluster centres, start with the first because it should be the largest cluster
-    selected_sentences_greedy_idxs = [0]
+    selected_sentences_greedy_idxs = [selected_sentence_idxs[0]]
     selected_sentences_greedy = [selected_sentences_clustering[0]]
+    selected_embeddings_greedy = [selected_embeddings_clustered[0]]
     total_tokens = sum(get_token_length(selected_sentences_greedy))
     while total_tokens < token_limit:
-        for selected_sentence in selected_sentences_greedy:
+        for selected_embedding in selected_embeddings_greedy:
             distances = []
             cost = []
             idx_to_copy = []
-            for idx, sentence in enumerate(selected_sentences_clustering):
+            for idx, embedding in enumerate(selected_embeddings_clustered):
                 if idx in selected_sentences_greedy_idxs:
                     continue
-                distances.append(
-                    util.pairwise_dot_score(
-                        model.encode(selected_sentence), model.encode(sentence)
-                    )
-                )
+                distances.append(util.pairwise_dot_score(selected_embedding, embedding))
                 cost.append(distances[-1] * lengths[idx])
                 idx_to_copy.append(idx)
 
@@ -176,11 +168,8 @@ def sample_sentences(sentences: pl.DataFrame):
 
 
 def get_sentences():
-    conn = psycopg2.connect(os.getenv("PGDATABASE"))
-    dict_cur = conn.cursor(cursor_factory=RealDictCursor)
-    dict_cur.execute(QUERY)
-    ret = dict_cur.fetchall()
-    df = pl.DataFrame(ret)
+    conn_str = os.getenv("PGDATABASE")
+    df = pl.read_database(QUERY, conn_str)
 
     filtered = (
         df.groupby(["job_id"])
@@ -199,9 +188,12 @@ def tokenize_and_count(sentence_df: pl.DataFrame):
     df = sentence_df.with_columns(
         [pl.col("sentence").apply(get_token_length).alias("num_tokens")]
     )  # , pl.col("sentence").apply(encode_sentences).alias("sentence_encoding")
-    df = df.with_columns(pl.col("num_tokens").arr.sum().alias("total")).sort(
-        "total", descending=True
-    )
+    df = df.with_columns(
+        [
+            pl.col("num_tokens").arr.sum().alias("total"),
+            pl.col("pmcid").arr.lengths().alias("num_articles"),
+        ]
+    ).sort("total", descending=True)
     print(
         f"Number of RNAs with fewer than 3072 total tokens: {df.filter(pl.col('total').lt(3072)).height}"
     )
@@ -210,10 +202,13 @@ def tokenize_and_count(sentence_df: pl.DataFrame):
 
 def get_sentences_for_summary(method) -> pl.DataFrame:
     if method == "topic":
-        sentence_df = get_sentences()
-        sentence_df = tokenize_and_count(sentence_df)
-        sentence_df.write_json("all_available_sentences.json")
-
+        if Path("all_available_sentences.json").exists():
+            sentence_df = pl.read_json("all_available_sentences.json")
+        else:
+            sentence_df = get_sentences()
+            sentence_df = tokenize_and_count(sentence_df)
+            sentence_df.write_json("all_available_sentences.json")
+        print(sentence_df)
         sample_df = sample_sentences(sentence_df)
 
         return sample_df.select(["job_id", "selected_pmcids", "selected_sentences"])
