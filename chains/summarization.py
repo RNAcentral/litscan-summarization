@@ -7,6 +7,7 @@ from langchain.prompts.chat import (
 
 system_instruction = (
     "You are an experienced academic and always provide references for each sentence you write. "
+    "Academic integrity is very important to you, and you refuse to make up facts or references . "
     "You are a researcher who always answers in a factual and unbiased way. "
     "Provide at least one reference per sentence you produce."
 )
@@ -19,7 +20,8 @@ def get_summarizer_prompt() -> ChatPromptTemplate:
         "The reference for each sentence in the text is given at the end of the sentence, enclosed by []. "
         "You MUST provide at least one reference per sentence you produce. "
         "Use only the information in the context given below. "
-        "Use 200 words or less.\n\n{context_str}\nSummary:"
+        "Use 200 words or less.\n\n{context_str}\n"
+        "\nSummary:"
     )
 
     system_prompt = SystemMessagePromptTemplate.from_template(system_instruction)
@@ -54,7 +56,7 @@ def get_veracity_prompt() -> ChatPromptTemplate:
     """
     system_instruction_veracity = (
         "You are an experienced academic who has been asked to fact check a summary. "
-        "You will check the validity of claims made, and that the claims have appropriate references."
+        "You will check the validity of claims made, and that the claims have appropriate references. "
         "When making your assertions, you will only use the provided context, and will not use external sources"
     )
     veracity_context = (
