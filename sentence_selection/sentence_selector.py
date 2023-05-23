@@ -9,15 +9,9 @@ Output: JSON file containing sentences selected for each ID
 import logging
 
 import numpy as np
-import tiktoken
-import torch
 from sentence_transformers import util
 
-enc = tiktoken.get_encoding("cl100k_base")
-
-
-def get_token_length(sentences):
-    return [len(enc.encode(s)) for s in sentences]
+from utils import get_token_length
 
 
 def iterative_sentence_selector(row, model, token_limit=3072):
