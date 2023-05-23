@@ -1,20 +1,34 @@
-import os
+import logging
 
-import psycopg2
-from psycopg2.extras import execute_values
+import polars as pl
 
 
-def insert_rna_data(data_dict):
-    conn = psycopg2.connect(os.getenv("SUMMDATABASE"))
-    cur = conn.cursor()
-    data = [(e["rna_id"], e["context"], e["summary"]) for e in data_dict]
-    insert_query = (
-        "insert into litscan_article_summaries (rna_id, context, summary) values %s"
-    )
-    execute_values(cur, insert_query, data, page_size=100)
-    conn.commit()
-    cur.close()
-    conn.close()
+def insert_rna_data(data_dict, conn_str, interactive=False):
+    df = pl.DataFrame(data_dict)
+    try:
+        df.write_database("litscan_article_summaries", conn_str, if_exists="fail")
+    except:
+        logging.warning("Data already exists in database!")
+        if interactive:
+            choice = input(
+                "Data already exists in database! Would you like to (o)verwrite, (a)ppend, or (s)kip?"
+            )
+            if choice == "o":
+                df.write_database(
+                    "litscan_article_summaries", conn_str, if_exists="replace"
+                )
+            elif choice == "a":
+                df.write_database(
+                    "litscan_article_summaries", conn_str, if_exists="append"
+                )
+            elif choice == "s":
+                logging.warning("Skipping!")
+                print("Skipping!")
+        else:
+            logging.warning("Overwriting data in database!")
+            df.write_database(
+                "litscan_article_summaries", conn_str, if_exists="replace"
+            )
 
 
 if __name__ == "__main__":
