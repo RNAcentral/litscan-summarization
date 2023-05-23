@@ -30,13 +30,18 @@ def iterative_sentence_selector(row, model, token_limit=3072):
 
     """
     sentences = row["sentence"]
+    pmcids = row["pmcid"]
     ent_id = row["job_id"]
     ## If we don't have enough, return all
     if sum(get_token_length(sentences)) <= token_limit:
         logging.info(f"Few tokens for {ent_id}, using all sentences")
-        return sentences.to_list()
+        return {
+            "selected_sentences": sentences.to_list(),
+            "selected_pmcids": pmcids.to_list(),
+        }
 
     sentences = np.array(sentences)
+    pmcids = np.array(pmcids)
 
     ## Try to reduce the number of sentences that need to be encoded by clustering and taking exemplars
 
@@ -48,6 +53,7 @@ def iterative_sentence_selector(row, model, token_limit=3072):
 
     ## Select a starting sentence per cluster
     selected_sentences = [sentences[labels == i][0] for i in np.unique(labels) if i > 0]
+    selected_pmcids = [pmcids[labels == i][0] for i in np.unique(labels) if i > 0]
 
     label_index_lookup = {i: 1 for i in np.unique(labels) if i > 0}
     ## If there aren't too many clusters, this will be true, and we can select from them until we run out of tokens
@@ -60,6 +66,10 @@ def iterative_sentence_selector(row, model, token_limit=3072):
                 sentences[labels == communities[com_idx]][label_index_lookup[com_idx]]
             )  ## Get the next sentence from the community
 
+            selected_pmcids.append(
+                pmcids[labels == communities[com_idx]][label_index_lookup[com_idx]]
+            )
+
             label_index_lookup[com_idx] += 1
             com_idx += 1
             if com_idx >= len(communities):
@@ -68,7 +78,10 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         ## pop the last one, since by definition we went over by including it
         selected_sentences.pop()
 
-        return selected_sentences
+        return {
+            "selected_sentences": sentences.to_list(),
+            "selected_pmcids": pmcids.to_list(),
+        }
 
     logging.info(f"{ent_id} has too many clusters to use round-robin selection")
     logging.info(
@@ -80,6 +93,7 @@ def iterative_sentence_selector(row, model, token_limit=3072):
 
     com_idx = 2  ## The -1 community is "noise", and we add those at index 1 manually so we start at 2
     selected_sentences = [sentences[labels == 0][0]]
+    selected_pmcids = [pmcids[labels == 0][0]]
     selected_embeddings = [embeddings[labels == 0][0]]
     total_tokens = sum(get_token_length(selected_sentences))
     while total_tokens < token_limit:
@@ -103,6 +117,9 @@ def iterative_sentence_selector(row, model, token_limit=3072):
             selected_embeddings.append(
                 embeddings[labels == communities[com_idx]][next_selection]
             )
+            selected_pmcids.append(
+                pmcids[labels == communities[com_idx]][next_selection]
+            )
             ## Check we aren't about to run out of tokens
             total_tokens = sum(get_token_length(selected_sentences))
             if total_tokens >= token_limit:
@@ -113,4 +130,7 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         if com_idx >= len(communities):
             com_idx = 1
 
-    return selected_sentences
+    return {
+        "selected_sentences": sentences.to_list(),
+        "selected_pmcids": pmcids.to_list(),
+    }
