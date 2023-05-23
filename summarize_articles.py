@@ -12,10 +12,7 @@ from chains.summarization import (
     get_veracity_revision_chain,
 )
 from llm_abstraction.models import get_model
-from sentence_selection.pull_intro_sentences import (
-    get_sentences_for_summary,
-    tokenize_and_count,
-)
+from sentence_selection import get_sentences
 from utils.context import build_context
 from utils.database import insert_rna_data
 from utils.googledocs import create_id_link_spreadsheet, create_summary_doc
@@ -109,11 +106,16 @@ def generate_summary(
 @click.option("--context_output_dir", default="contexts", type=click.Path())
 @click.option("--summary_output_dir", default="summaries", type=click.Path())
 @click.option("--cached_sentences", default="sentences.json", type=click.Path())
+@click.option("--conn_str", envvar="PGDATABASE")
+@click.option("--device", default="cpu:0")
+@click.option("--query_file", default="query.sql")
+@click.option("--token_limit", default=3072)
 @click.option("--evaluate_truth", default=True, is_flag=True)
+@click.option("--write_db", default=False, is_flag=True)
+@click.option("--write_gdocs", default=False, is_flag=True)
 @click.option("--generation_limit", default=-1)
 @click.option("--start_idx", default=0)
 @click.option("--dry_run", default=False, is_flag=True)
-@click.option("--method", default="topic")
 def main(
     context_output_dir,
     summary_output_dir,
@@ -122,7 +124,12 @@ def main(
     generation_limit,
     start_idx,
     dry_run,
-    method,
+    device,
+    query_file,
+    token_limit,
+    conn_str,
+    write_db,
+    write_gdocs,
 ):
     context_output_dir = Path(context_output_dir)
     context_output_dir.mkdir(parents=True, exist_ok=True)
@@ -136,7 +143,10 @@ def main(
     if Path(cached_sentences).exists():
         sentence_df = pl.read_json(cached_sentences)
     else:
-        sentence_df = get_sentences_for_summary(method)
+        query = Path(query_file).read_text()
+        sentence_df = get_sentences.for_summary(
+            conn_str, query=query, device=device, limit=token_limit
+        )
         sentence_df.write_json(cached_sentences)
 
     if dry_run:
@@ -165,21 +175,23 @@ def main(
         elif ids_done == generation_limit:
             break
 
-    ## Insert the results into my database
-    insert_rna_data(data_for_db)
+    if write_db:
+        ## Insert the results into my database
+        insert_rna_data(data_for_db)
 
-    ## Create the googledocs
-    documents = {}
-    for entry in data_for_db:
-        documents[entry["rna_id"]] = create_summary_doc(
-            entry["rna_id"],
-            entry["context"],
-            entry["summary"],
-            system_instruction + context_padding + revision_context,
-        )
+    if write_gdocs:
+        ## Create the googledocs
+        documents = {}
+        for entry in data_for_db:
+            documents[entry["rna_id"]] = create_summary_doc(
+                entry["rna_id"],
+                entry["context"],
+                entry["summary"],
+                system_instruction + context_padding + revision_context,
+            )
 
-    ## Create the spreadsheet
-    create_id_link_spreadsheet(documents)
+        ## Create the spreadsheet
+        create_id_link_spreadsheet(documents)
 
 
 if __name__ == "__main__":
