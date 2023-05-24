@@ -21,7 +21,19 @@ def pull_data_from_db(conn_str, query):
     """
     Just executes the pull using connextorx in the background. Should be directly writable to JSON, or useable as a dataframe.
     """
-    df = pl.read_database(query, conn_str)
+
+    df = pl.read_database(query, conn_str, protocol="binary")
+
+    if df.schema["sentence"] != pl.List:
+        ## Implies the df is not grouped by job_id
+        df = df.with_columns(pl.col("sentence").str.split("$"))
+
+        df = (
+            df.groupby(["job_id"])
+            .agg([pl.col("*").exclude("sentence"), pl.col("sentence").explode()])
+            .filter(pl.col("result_id").arr.lengths() > 1)
+        )
+
     return df
 
 
