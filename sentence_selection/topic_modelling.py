@@ -47,11 +47,23 @@ def cluster_sentences(id_sentences, model):
     """
     Clusters the sentences for a given ID and labels them in the dataframe
     """
+    if isinstance(id_sentences, pl.Series):
+        print("converting to list")
+        id_sentences = id_sentences.to_list()
+
     embeddings = (
-        model.encode(id_sentences.to_list(), convert_to_tensor=True).cpu().numpy()
+        model.encode(
+            id_sentences,
+            show_progress_bar=True,
+            convert_to_tensor=True,
+            normalize_embeddings=True,
+        )
+        .cpu()
+        .numpy()
     )
+    k = min(15, len(id_sentences) - 1)
     umap_embeddings = umap.UMAP(
-        n_neighbors=15, n_components=5, metric="cosine"
+        n_neighbors=k, n_components=5, metric="cosine"
     ).fit_transform(embeddings)
     cluster = hdbscan.HDBSCAN(
         min_cluster_size=15, metric="euclidean", cluster_selection_method="eom"
@@ -78,11 +90,12 @@ def get_topics(sentences, labels):
     return topic_summary
 
 
-def run_topic_modelling(sentences, device):
-    model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
+def run_topic_modelling(sentences, model):
+    cluster_res = cluster_sentences(sentences.get_column("sentence"), model)
     sentences = sentences.with_columns(
-        res=pl.col("sentence").apply(lambda x: cluster_sentences(x, model))
-    ).unnest("res")
+        sentence_labels=pl.Series(cluster_res["sentence_labels"]),
+        topics=pl.Series(cluster_res["topics"]),
+    )
     return sentences
 
 
@@ -98,7 +111,9 @@ def run_topic_modelling(sentences, device):
 @click.option("--output_path", type=click.Path(), help="Path to output file")
 def main(json_path, device, output_path):
     sentences = pl.read_json(json_path)
-    sentences = run_topic_modelling(sentences, device)
+    print(sentences)
+    model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
+    sentences = run_topic_modelling(sentences, model)
     sentences.write_json(output_path)
 
 
