@@ -14,6 +14,8 @@ and lsr.job_id not in ('12s', '12s rrna', '12 s rrna',
                        '7sk rna', '7sk snrna', '7slrna', 'rnai',
                        '7sl rna', 'trna', 'snrna', 'mpa', 'msa', 'rns', 'tran',
                        'mir-21', 'mir-155')
+
+and not sentence like '%found in an image%'
 group by result_id
 
 having cardinality(array_agg(lsb.id)) > 2 and cardinality(array_agg(DISTINCT lsr.job_id)) = 1
