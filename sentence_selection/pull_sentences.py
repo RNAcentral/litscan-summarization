@@ -23,10 +23,12 @@ def pull_data_from_db(conn_str, query):
     """
 
     df = pl.read_database(query, conn_str, protocol="binary")
-
     if df.schema["sentence"] != pl.List:
+        print(
+            "Sentence column is not a list, assuming we need to do string manipulation"
+        )
         ## Implies the df is not grouped by job_id
-        df = df.with_columns(pl.col("sentence").str.split("$"))
+        df = df.with_columns(pl.col("sentence").str.split("$$$"))
 
         df = (
             df.groupby(["job_id"])
@@ -34,7 +36,7 @@ def pull_data_from_db(conn_str, query):
             .filter(pl.col("result_id").arr.lengths() > 1)
         )
 
-    return df
+    return df.sort(by="job_id")
 
 
 @click.command()
