@@ -145,7 +145,11 @@ def main(
     else:
         query = Path(query_file).read_text()
         sentence_df = get_sentences.for_summary(
-            conn_str, query=query, device=device, limit=token_limit
+            conn_str,
+            query=query,
+            device=device,
+            limit=token_limit,
+            cache=Path("raw_sentences.json"),
         )
         sentence_df.write_json(cached_sentences)
 
