@@ -3,10 +3,10 @@ import typing as ty
 from pathlib import Path
 
 import polars as pl
-from pull_sentences import pull_data_from_db
-from sentence_selector import iterative_sentence_selector
 
-from utils import get_token_length
+from sentence_selection.pull_sentences import pull_data_from_db
+from sentence_selection.sentence_selector import iterative_sentence_selector
+from sentence_selection.utils import get_token_length
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
@@ -16,8 +16,9 @@ from sentence_transformers import SentenceTransformer
 def sample_sentences(
     sentences: pl.DataFrame, model: SentenceTransformer, limit: ty.Optional[int] = 3072
 ):
+
     df = sentences.with_columns(
-        pl.struct(["sentence", "job_id"])
+        pl.struct(["sentence", "job_id", "pmcid"])
         .apply(lambda x: iterative_sentence_selector(x, model, limit))
         .alias("result")
     ).unnest("result")
