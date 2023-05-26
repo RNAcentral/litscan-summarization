@@ -8,6 +8,7 @@ Output: JSON file containing sentences selected for each ID
 
 import logging
 
+logging.getLogger().setLevel(logging.INFO)
 import numpy as np
 import polars as pl
 from sentence_transformers import util
@@ -72,18 +73,25 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         ## round-robin grabbing of sentences until we hit the limit
         com_idx = 1  ## The -1 community is "noise", so we start at 1
         while sum(get_token_length(selected_sentences)) < token_limit:
-            selected_sentences.append(
-                sentences[labels == communities[com_idx]][label_index_lookup[com_idx]]
-            )  ## Get the next sentence from the community
+            try:
+                selected_sentences.append(
+                    sentences[labels == communities[com_idx]][
+                        label_index_lookup[com_idx]
+                    ]
+                )  ## Get the next sentence from the community
 
-            selected_pmcids.append(
-                pmcids[labels == communities[com_idx]][label_index_lookup[com_idx]]
-            )
+                selected_pmcids.append(
+                    pmcids[labels == communities[com_idx]][label_index_lookup[com_idx]]
+                )
+            except:
+                pass
 
             label_index_lookup[com_idx] += 1
             com_idx += 1
             print(com_idx, len(communities))
-            if com_idx >= len(communities):
+            if (
+                com_idx == len(communities) - 2
+            ):  # -2 because we don't want to include the noise cluster
                 com_idx = 1
 
         ## pop the last one, since by definition we went over by including it
@@ -126,13 +134,21 @@ def iterative_sentence_selector(row, model, token_limit=3072):
                 cost.append(distances[-1] * lengths[idx])
                 idx_to_copy.append(idx)
         next_selection = idx_to_copy[np.argmin(cost)]
-        selected_sentences.append(
-            sentences[labels == communities[com_idx]][next_selection]
-        )
-        selected_embeddings.append(
-            embeddings[labels == communities[com_idx]][next_selection]
-        )
-        selected_pmcids.append(pmcids[labels == communities[com_idx]][next_selection])
+        try:
+            selected_sentences.append(
+                sentences[labels == communities[com_idx]][next_selection]
+            )
+            selected_embeddings.append(
+                embeddings[labels == communities[com_idx]][next_selection]
+            )
+            selected_pmcids.append(
+                pmcids[labels == communities[com_idx]][next_selection]
+            )
+        except:
+            com_idx += 1
+            if com_idx == len(communities) - 2:  ## -2 because we skip the -1 community
+                com_idx = 1
+            continue
 
         ## Check we aren't about to run out of tokens
         total_tokens = sum(get_token_length(selected_sentences))
