@@ -31,12 +31,18 @@ def pull_data_from_db(conn_str, query):
         df = df.with_columns(pl.col("sentence").str.split("$$$"))
 
         df = (
-            df.groupby(["job_id"])
-            .agg([pl.col("*").exclude("sentence"), pl.col("sentence").explode()])
+            df.groupby(["primary_id"])
+            .agg(
+                [
+                    pl.col("*").exclude(["sentence", "job_id"]),
+                    pl.col("sentence").explode(),
+                    pl.col("job_id").unique(),
+                ]
+            )
             .filter(pl.col("result_id").arr.lengths() > 1)
         )
 
-    return df.sort(by="job_id")
+    return df  # .sort(by="job_id")
 
 
 @click.command()
