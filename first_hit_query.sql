@@ -1,4 +1,4 @@
-select result_id, (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
+select result_id, max(primary_id) as primary_id, (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
 				(array_agg( DISTINCT lsr.job_id))[1] as job_id,
 				(array_agg(sentence))[1] as sentence
 from embassy_rw.litscan_body_sentence lsb
@@ -13,9 +13,10 @@ and lsr.job_id not in ('12s', '12s rrna', '12 s rrna',
                        '2a-1', '2b-2', '45s pre-rrna', '7sk',
                        '7sk rna', '7sk snrna', '7slrna', 'rnai',
                        '7sl rna', 'trna', 'snrna', 'mpa', 'msa', 'rns', 'tran',
-                       'mir-21', 'mir-155')
+                       'dmr', 'cta')
 
 and not sentence like '%found in an image%'
+and primary_id is not NULL
 group by result_id
 
-having cardinality(array_agg(lsb.id)) > 2 and cardinality(array_agg(DISTINCT lsr.job_id)) = 1
+-- having cardinality(array_agg(lsb.id)) > 2 and cardinality(array_agg(DISTINCT lsr.job_id)) = 1
