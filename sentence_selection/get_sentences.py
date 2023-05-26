@@ -4,6 +4,7 @@ from pathlib import Path
 
 import polars as pl
 
+from sentence_selection.aliases import resolve_aliases
 from sentence_selection.pull_sentences import pull_data_from_db
 from sentence_selection.sentence_selector import iterative_sentence_selector
 from sentence_selection.utils import get_token_length
@@ -54,6 +55,7 @@ def for_summary(
         sentence_df = pull_data_from_db(conn_str, query)
         sentence_df = tokenize_and_count(sentence_df)
         sentence_df.write_json(cache)
+    sentence_df = resolve_aliases(sentence_df)
 
     model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
     sample_df = sample_sentences(sentence_df, model, limit)
