@@ -48,7 +48,6 @@ def cluster_sentences(id_sentences, model):
     Clusters the sentences for a given ID and labels them in the dataframe
     """
     if isinstance(id_sentences, pl.Series):
-        print("converting to list")
         id_sentences = id_sentences.to_list()
 
     embeddings = (
