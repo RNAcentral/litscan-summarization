@@ -32,7 +32,8 @@ def iterative_sentence_selector(row, model, token_limit=3072):
     Output: list of sentence indices to use for each ID
 
     """
-    ent_id = row["job_id"]
+    ent_id = row["primary_id"]
+    del row["primary_id"]
     row = pl.DataFrame(row)
     sentences = row.get_column("sentence").to_list()
     pmcids = row.get_column("pmcid").to_list()
@@ -47,52 +48,33 @@ def iterative_sentence_selector(row, model, token_limit=3072):
 
     ## If we have too many, use topic modelling
     logging.info(f"Too many tokens for {ent_id}, using topic modelling")
-    row = run_topic_modelling(row, model)
+    row, communities = run_topic_modelling(row, model)
 
     sentences = np.array(sentences)
     pmcids = np.array(pmcids)
 
     ## Try to reduce the number of sentences that need to be encoded by clustering and taking exemplars
+    ## Exemplar indices are in the communities list - one list of exemplars for each cluster
 
-    embeddings = (
-        model.encode(sentences, convert_to_tensor=True, normalize_embeddings=True)
-        .cpu()
-        .numpy()
-    )
-    labels = row.get_column("sentence_labels").to_numpy()
-    communities = np.unique(sorted(labels))
+    embeddings = row.get_column("embeddings").to_numpy()
 
     ## Select a starting sentence per cluster
-    selected_sentences = [sentences[labels == i][0] for i in np.unique(labels) if i > 0]
-    selected_pmcids = [pmcids[labels == i][0] for i in np.unique(labels) if i > 0]
-
-    label_index_lookup = {i: 1 for i in np.unique(labels) if i > 0}
+    selected_sentences = [
+        sentences[c[0]] for c in communities
+    ]  ## See if the noise community is in there...
+    selected_pmcids = [pmcids[c[0]] for c in communities]
+    print(sum(get_token_length(selected_sentences)))
     ## If there aren't too many clusters, this will be true, and we can select from them until we run out of tokens
     if sum(get_token_length(selected_sentences)) <= token_limit:
         logging.info(f"Sampling communities for {ent_id}, until token limit")
+        ## First, pop all the first sentences 'cause they're already in the list
+        [c.pop(0) for c in communities]
+
         ## round-robin grabbing of sentences until we hit the limit
-        com_idx = 1  ## The -1 community is "noise", so we start at 1
         while sum(get_token_length(selected_sentences)) < token_limit:
-            try:
-                selected_sentences.append(
-                    sentences[labels == communities[com_idx]][
-                        label_index_lookup[com_idx]
-                    ]
-                )  ## Get the next sentence from the community
-
-                selected_pmcids.append(
-                    pmcids[labels == communities[com_idx]][label_index_lookup[com_idx]]
-                )
-            except:
-                pass
-
-            label_index_lookup[com_idx] += 1
-            com_idx += 1
-            print(com_idx, len(communities))
-            if (
-                com_idx == len(communities) - 2
-            ):  # -2 because we don't want to include the noise cluster
-                com_idx = 1
+            for c in communities:
+                if len(c) > 0:  ## If there are sentences left in the community
+                    selected_sentences.append(sentences[c.pop(0)])
 
         ## pop the last one, since by definition we went over by including it
         selected_sentences.pop()
@@ -110,55 +92,59 @@ def iterative_sentence_selector(row, model, token_limit=3072):
     ## If we're here, there are still too many tokens in the selection. Now we need to optimize for diversity and token count
     ## Use a greedy algorithm on the cluster centres, start with the first because it should be the largest cluster
 
-    com_idx = 2  ## The -1 community is "noise", and we add those at index 1 manually so we start at 2
-    selected_sentences = [sentences[labels == 0][0]]
-    selected_pmcids = [pmcids[labels == 0][0]]
-    selected_embeddings = [embeddings[labels == 0][0]]
-    selected_idxs = [0]
+    start_idx = communities[0].pop()  ## This will always be selected, so ok to pop
+    selected_sentences = [sentences[start_idx]]
+    selected_pmcids = [pmcids[start_idx]]
+    selected_embeddings = [embeddings[start_idx]]
+    selected_idxs = [start_idx]
+
     total_tokens = sum(get_token_length(selected_sentences))
     while total_tokens < token_limit:
-        lengths = get_token_length(sentences[labels == communities[com_idx]])
+        lengths = get_token_length(selected_sentences)
         ## This loop runs for each community, and selects the most distinct sentence from that community
-        for selected_embedding in selected_embeddings:
+        for e_idx, selected_embedding in enumerate(selected_embeddings):
             distances = []
             cost = []
+            community_idx = []
             idx_to_copy = []
-            for idx, embedding in enumerate(embeddings[labels == communities[com_idx]]):
-                if idx in selected_idxs:
+            for c_idx, comm in enumerate(communities):
+                if (
+                    len(comm) == 0
+                ):  ## If we've run out of sentences in the community, skip it
                     continue
+                idx = comm[0]  ## Get the first sentence in the community
+                if (
+                    idx in selected_idxs
+                ):  ## This index should be to the sentences, so this ought to be impossible...
+                    continue
+                embedding = embeddings[idx]
                 distances.append(
                     util.pairwise_dot_score(selected_embedding, embedding)
                     .numpy()
                     .tolist()
                 )
-                cost.append(distances[-1] * lengths[idx])
+                cost.append(distances[-1] * lengths[e_idx])
                 idx_to_copy.append(idx)
-        next_selection = idx_to_copy[np.argmin(cost)]
-        try:
-            selected_sentences.append(
-                sentences[labels == communities[com_idx]][next_selection]
-            )
-            selected_embeddings.append(
-                embeddings[labels == communities[com_idx]][next_selection]
-            )
-            selected_pmcids.append(
-                pmcids[labels == communities[com_idx]][next_selection]
-            )
-        except:
-            com_idx += 1
-            if com_idx == len(communities) - 2:  ## -2 because we skip the -1 community
-                com_idx = 1
-            continue
+                community_idx.append(c_idx)
+        ## Get the index of the minimum, use to grab the right sentence and community
+        min_index = np.argmin(cost)
+        comm_index = community_idx[min_index]
+        communities[comm_index].pop(
+            0
+        )  ## Remove the selected sentence from the community
+        next_selection = idx_to_copy[min_index]
+
+        ## Put the selection in...
+        selected_sentences.append(sentences[next_selection])
+        selected_embeddings.append(embeddings[next_selection])
+        selected_pmcids.append(pmcids[next_selection])
+        selected_idxs.append(next_selection)
 
         ## Check we aren't about to run out of tokens
         total_tokens = sum(get_token_length(selected_sentences))
         if total_tokens >= token_limit:
             selected_sentences.pop()
             break
-        com_idx += 1
-        ## If we've run out of clusters, go back to the first one
-        if com_idx == len(communities) - 2:  ## -2 because we skip the -1 community
-            com_idx = 1
     return {
         "selected_sentences": selected_sentences,
         "selected_pmcids": selected_pmcids,
