@@ -19,7 +19,7 @@ def sample_sentences(
 ):
 
     df = sentences.with_columns(
-        pl.struct(["sentence", "job_id", "pmcid"])
+        pl.struct(["sentence", "primary_id", "pmcid"])
         .apply(lambda x: iterative_sentence_selector(x, model, limit))
         .alias("result")
     ).unnest("result")
