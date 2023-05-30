@@ -43,6 +43,19 @@ def extract_topic_sizes(df):
     return topic_sizes
 
 
+def get_exemplars(cluster_object, embeddings):
+    """
+    Uses the exemplars from the HDBSCAN cluster object to get the indices of the sentences to use
+    """
+    exemplar_vectors = cluster_object.exemplars_
+    exemplar_indices = []
+    for cluster in exemplar_vectors:
+        exemplar_indices.append([])
+        for exemplar in cluster:
+            exemplar_indices[-1].append(np.where(exemplar == embeddings)[0][0])
+    return exemplar_indices
+
+
 def cluster_sentences(id_sentences, model):
     """
     Clusters the sentences for a given ID and labels them in the dataframe
@@ -68,13 +81,21 @@ def cluster_sentences(id_sentences, model):
         min_cluster_size=15, metric="euclidean", cluster_selection_method="eom"
     ).fit(umap_embeddings)
     topics = get_topics(id_sentences, cluster.labels_)
-    return {"sentence_labels": cluster.labels_.tolist(), "topics": topics}
+    exemplar_indices = get_exemplars(cluster, umap_embeddings)
+    return {
+        "sentence_labels": cluster.labels_.tolist(),
+        "topics": topics,
+        "umap_embeddings": umap_embeddings,
+        "exemplar_indices": exemplar_indices,
+    }
 
 
 def get_topics(sentences, labels):
     """
     Returns the topics for a given set of sentences and labels
     """
+    if isinstance(sentences[0], list):
+        sentences = [s[0] for s in sentences]
     docs_df = pl.DataFrame(
         {"doc": sentences, "topic": labels, "doc_id": range(len(sentences))}
     )
@@ -91,11 +112,13 @@ def get_topics(sentences, labels):
 
 def run_topic_modelling(sentences, model):
     cluster_res = cluster_sentences(sentences.get_column("sentence"), model)
+    exemplar_indices = cluster_res["exemplar_indices"]
     sentences = sentences.with_columns(
         sentence_labels=pl.Series(cluster_res["sentence_labels"]),
         topics=pl.Series(cluster_res["topics"]),
+        embeddings=pl.Series(cluster_res["umap_embeddings"]),
     )
-    return sentences
+    return sentences, exemplar_indices
 
 
 @click.command()
