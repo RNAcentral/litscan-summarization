@@ -5,6 +5,8 @@ enc = tiktoken.get_encoding("cl100k_base")
 
 
 def get_token_length(sentences):
+    if len(sentences) == 0:
+        return 0
     return [len(enc.encode(s)) for s in sentences]
 
 
