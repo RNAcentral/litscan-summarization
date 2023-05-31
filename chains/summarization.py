@@ -7,22 +7,23 @@ from langchain.prompts.chat import (
 
 system_instruction = (
     "You are an experienced academic and always provide references for each sentence you write. "
-    "Academic integrity is very important to you, and you refuse to make up facts or references . "
     "You are a researcher who always answers in a factual and unbiased way. "
     "Provide at least one reference per sentence you produce."
 )
+## 39 tokens
 
 
 def get_summarizer_prompt() -> ChatPromptTemplate:
     context_padding = (
         "As an experienced academic who ALWAYS provides references for each sentence you write, "
-        "produce a summary from the text below, focusing on {rna_id} and using the references for each sentence. "
+        "produce a summary from the text below, focusing on {ent_id} and using the references for each sentence. "
         "The reference for each sentence in the text is given at the end of the sentence, enclosed by []. "
         "You MUST provide at least one reference per sentence you produce. "
         "Use only the information in the context given below. "
         "Use 200 words or less.\n\n{context_str}\n"
         "\nSummary:"
     )
+    # 91 tokens - call it 100 for ID as well
 
     system_prompt = SystemMessagePromptTemplate.from_template(system_instruction)
     human_prompt = HumanMessagePromptTemplate.from_template(context_padding)
@@ -60,7 +61,7 @@ def get_veracity_prompt() -> ChatPromptTemplate:
         "When making your assertions, you will only use the provided context, and will not use external sources"
     )
     veracity_context = (
-        "Here is a bullet point list of statements about the RNA {rna_id}:\n"
+        "Here is a bullet point list of statements about the entity {ent_id}:\n"
         "{bullet_summary}\n\n"
         "The summary was derived from the following context:\n"
         "{original_context}\n"
