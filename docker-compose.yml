@@ -20,5 +20,31 @@ services:
       - LITSCAN_DB=${LITSCAN_DB}
     restart: unless-stopped
 
+  producer:
+    image: ghcr.io/rnacentral/litscan-producer:main
+    ports:
+      - "8080:8080"
+    environment:
+      ENVIRONMENT: "DOCKER"
+      LITSCAN_USER: ${LITSCAN_USER}
+      LITSCAN_PASSWORD: ${LITSCAN_PASSWORD}
+      LITSCAN_DB: ${LITSCAN_DB}
+    depends_on:
+      - database
+    restart: always
+
+  consumer:
+    image: ghcr.io/rnacentral/litscan-consumer:main
+    ports:
+      - "8081:8081"
+    environment:
+      ENVIRONMENT: "DOCKER"
+      LITSCAN_USER: ${LITSCAN_USER}
+      LITSCAN_PASSWORD: ${LITSCAN_PASSWORD}
+      LITSCAN_DB: ${LITSCAN_DB}
+    depends_on:
+      - database
+    restart: always
+
 volumes:
   postgres_data:
