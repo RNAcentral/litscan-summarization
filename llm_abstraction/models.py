@@ -1,6 +1,7 @@
 import logging
 
 from langchain.chat_models import ChatOpenAI
+from langchain.llms import LlamaCpp
 
 
 def get_model(source: str, kwargs):
@@ -21,4 +22,10 @@ def get_model(source: str, kwargs):
         logging.info("Initializing Facebook LLaMA 13B model")
         logging.warn("LLaMA is not yet implemented!")
         llm = None
+    elif source == "local":
+        logging.info("Initializing a locally hosted model ")
+        assert "model_path" in kwargs, "model_path must be specified for a local model"
+        llm = LlamaCpp(
+            model_path=kwargs["model_path"], temperature=temperature, n_ctx=8192
+        )
     return llm

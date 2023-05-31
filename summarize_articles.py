@@ -20,7 +20,12 @@ from utils.validation import validate_summary
 
 
 def generate_summary(
-    model_name, rna_id, context, evaluate_truth=False, max_rescue_attempts=4
+    model_name,
+    ent_id,
+    context,
+    evaluate_truth=False,
+    max_rescue_attempts=4,
+    extra_args={},
 ):
     """
     Runs the LLM chains to produce a summary, first the summarizer chain,
@@ -34,21 +39,24 @@ def generate_summary(
     summary_chain = get_summarizer_chain(
         get_model(
             model_name,
-            {"temperature": 0.1, "presence_penalty": -2, "frequency_penalty": 1},
+            {"temperature": 0.1, "presence_penalty": -2, "frequency_penalty": 1}
+            | extra_args,
         ),
         verbose=True,
     )
     reference_chain = get_reference_chain(
         get_model(
             model_name,
-            {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0},
+            {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+            | extra_args,
         ),
         verbose=True,
     )
     veracity_chain = get_veracity_chain(
         get_model(
             model_name,
-            {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0},
+            {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+            | extra_args,
         ),
         verbose=True,
     )
@@ -56,7 +64,8 @@ def generate_summary(
     veracity_revision_chain = get_veracity_revision_chain(
         get_model(
             model_name,
-            {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0},
+            {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+            | extra_args,
         ),
         verbose=True,
     )
@@ -116,6 +125,8 @@ def generate_summary(
 @click.option("--generation_limit", default=-1)
 @click.option("--start_idx", default=0)
 @click.option("--dry_run", default=False, is_flag=True)
+@click.option("--model_name", default="chatGPT")
+@click.option("--model_path", default=None)
 def main(
     context_output_dir,
     summary_output_dir,
@@ -130,13 +141,16 @@ def main(
     conn_str,
     write_db,
     write_gdocs,
+    model_name,
+    model_path,
 ):
     context_output_dir = Path(context_output_dir)
     context_output_dir.mkdir(parents=True, exist_ok=True)
     summary_output_dir = Path(summary_output_dir)
     summary_output_dir.mkdir(parents=True, exist_ok=True)
 
-    model_name = "chatGPT"  # this will be a CLI option at some point
+    if model_path is not None:
+        extra_args = {"model_path": model_path}
 
     data_for_db = []
 
