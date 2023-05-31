@@ -3,3 +3,7 @@
 .idea
 credentials.json
 token.json
+summaries/*
+contexts/*
+*.json
+*.png
