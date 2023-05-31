@@ -49,7 +49,12 @@ def iterative_sentence_selector(row, model, token_limit=3072):
     ## If we have too many, use topic modelling
     logging.info(f"Too many tokens for {ent_id}, using topic modelling")
     row, communities = run_topic_modelling(row, model)
-
+    ## Catch the case where there are nil communities
+    if len(communities) == 0:
+        logging.info(
+            f"No communities for {ent_id}, re-running with smaller minimum cluster size"
+        )
+        row, communities = run_topic_modelling(row, model, min_cluster_size=3)
     sentences = np.array(sentences)
     pmcids = np.array(pmcids)
 

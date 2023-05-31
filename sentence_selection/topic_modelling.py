@@ -56,7 +56,7 @@ def get_exemplars(cluster_object, embeddings):
     return exemplar_indices
 
 
-def cluster_sentences(id_sentences, model):
+def cluster_sentences(id_sentences, model, min_cluster_size=15, min_samples=5):
     """
     Clusters the sentences for a given ID and labels them in the dataframe
     """
@@ -75,10 +75,13 @@ def cluster_sentences(id_sentences, model):
     )
     k = min(15, len(id_sentences) - 1)
     umap_embeddings = umap.UMAP(
-        n_neighbors=k, n_components=5, metric="cosine"
+        n_neighbors=k, n_components=20, metric="cosine"
     ).fit_transform(embeddings)
     cluster = hdbscan.HDBSCAN(
-        min_cluster_size=15, metric="euclidean", cluster_selection_method="eom"
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        metric="euclidean",
+        cluster_selection_method="eom",
     ).fit(umap_embeddings)
     topics = get_topics(id_sentences, cluster.labels_)
     exemplar_indices = get_exemplars(cluster, umap_embeddings)
@@ -110,8 +113,10 @@ def get_topics(sentences, labels):
     return topic_summary
 
 
-def run_topic_modelling(sentences, model):
-    cluster_res = cluster_sentences(sentences.get_column("sentence"), model)
+def run_topic_modelling(sentences, model, min_cluster_size=15, min_samples=5):
+    cluster_res = cluster_sentences(
+        sentences.get_column("sentence"), model, min_cluster_size, min_samples
+    )
     exemplar_indices = cluster_res["exemplar_indices"]
     sentences = sentences.with_columns(
         sentence_labels=pl.Series(cluster_res["sentence_labels"]),
