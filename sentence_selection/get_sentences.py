@@ -60,4 +60,4 @@ def for_summary(
     model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
     sample_df = sample_sentences(sentence_df, model, limit)
 
-    return sample_df.select(["job_id", "selected_pmcids", "selected_sentences"])
+    return sample_df.select(["primary_id", "selected_pmcids", "selected_sentences"])
