@@ -4,6 +4,7 @@ from pathlib import Path
 
 import click
 import polars as pl
+from langchain.callbacks import get_openai_callback
 
 from chains.summarization import (
     get_reference_chain,
@@ -69,46 +70,62 @@ def generate_summary(
         ),
         verbose=True,
     )
-
-    summary = summary_chain.run(rna_id=rna_id, context_str=context)
-    print(summary)
+    total_tokens = 0
+    cost = 0
+    with get_openai_callback() as cb:
+        summary = summary_chain.run(ent_id=ent_id, context_str=context)
+        print(cb)
+        total_tokens += cb.total_tokens
+        cost += cb.total_cost
 
     validation = validate_summary(summary, context)
     attempt = 1
     while not all(validation.values()):
         if attempt >= max_rescue_attempts:
             logging.warning(
-                f"Unable to generate a good summary for {rna_id}. Returning what we have and giving up"
+                f"Unable to generate a good summary for {ent_id}. Returning what we have and giving up"
             )
             # return summary
             break
         logging.warning(
             "Summary auto validation failed! Running reference insertion chain to rescue..."
         )
-        summary = reference_chain.run(
-            rna_id=rna_id, context_str=context, summary=summary
-        )
+        with get_openai_callback() as cb:
+            summary = reference_chain.run(
+                ent_id=ent_id, context_str=context, summary=summary
+            )
+            print(cb)
+            total_tokens += cb.total_tokens
+            cost += cb.total_cost
+
         validation = validate_summary(summary, context)
         attempt += 1
 
-    print(summary)
     if evaluate_truth:
         ## Check to see if the summary makes factual sense
         ## First transform the summary into a bulleted list
         bullet_summary = "- " + summary.replace(". ", "\n- ")
         logging.info("Evaluating truthfulness of summary")
-        veracity_check_result = veracity_chain.run(
-            rna_id=rna_id, bullet_summary=bullet_summary, original_context=context
-        )
+        with get_openai_callback() as cb:
+            veracity_check_result = veracity_chain.run(
+                ent_id=ent_id, bullet_summary=bullet_summary, original_context=context
+            )
+            print(cb)
+            total_tokens += cb.total_tokens
+            cost += cb.total_cost
+
         print(veracity_check_result)
         if re.search(r".*False.*", veracity_check_result):
             logging.warning("Untrue statements found in summary, revising accordingly")
-            summary = veracity_revision_chain.run(
-                checked_assertions=veracity_check_result, summary=summary
-            )
+            with get_openai_callback() as cb:
+                summary = veracity_revision_chain.run(
+                    checked_assertions=veracity_check_result, summary=summary
+                )
+                print(cb)
+                total_tokens += cb.total_tokens
+                cost += cb.total_cost
 
-    print(summary)
-    return summary
+    return summary, cost, total_tokens
 
 
 @click.command()
@@ -121,6 +138,7 @@ def generate_summary(
 @click.option("--token_limit", default=3072)
 @click.option("--evaluate_truth", default=True, is_flag=True)
 @click.option("--write_db", default=False, is_flag=True)
+@click.option("--write_json", default=False, is_flag=True)
 @click.option("--write_gdocs", default=False, is_flag=True)
 @click.option("--generation_limit", default=-1)
 @click.option("--start_idx", default=0)
@@ -140,6 +158,7 @@ def main(
     token_limit,
     conn_str,
     write_db,
+    write_json,
     write_gdocs,
     model_name,
     model_path,
@@ -175,18 +194,32 @@ def main(
         if start_idx > idx:
             continue
         context = build_context(row["selected_sentences"], row["selected_pmcids"])
-        with open(context_output_dir / f"{row['job_id']}.txt", "w") as context_output:
+        with open(
+            context_output_dir / f"{row['primary_id']}.txt", "w"
+        ) as context_output:
             context_output.write(context)
 
-        summary = generate_summary(
-            model_name, row["job_id"], context, evaluate_truth=evaluate_truth
+        summary, cost, total_tokens = generate_summary(
+            model_name,
+            row["primary_id"],
+            context,
+            evaluate_truth=evaluate_truth,
+            extra_args=extra_args,
         )
-        with open(summary_output_dir / f"{row['job_id']}.txt", "w") as summary_output:
+        with open(
+            summary_output_dir / f"{row['primary_id']}.txt", "w"
+        ) as summary_output:
             summary_output.write(summary)
         ids_done += 1
 
         data_for_db.append(
-            {"rna_id": row["job_id"], "context": context, "summary": summary}
+            {
+                "ent_id": row["primary_id"],
+                "context": context,
+                "summary": summary,
+                "cost": cost,
+                "total_tokens": total_tokens,
+            }
         )
         if generation_limit < 0:
             continue
@@ -197,12 +230,17 @@ def main(
         ## Insert the results into my database
         insert_rna_data(data_for_db)
 
+    if write_json:
+        ## Write the results to parquet
+        df = pl.DataFrame(data_for_db)
+        df.write_ndjson("summary_data.parquet")
+
     if write_gdocs:
         ## Create the googledocs
         documents = {}
         for entry in data_for_db:
-            documents[entry["rna_id"]] = create_summary_doc(
-                entry["rna_id"],
+            documents[entry["ent_id"]] = create_summary_doc(
+                entry["ent_id"],
                 entry["context"],
                 entry["summary"],
                 system_instruction + context_padding + revision_context,
