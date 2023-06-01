@@ -9,20 +9,20 @@ def get_model(source: str, kwargs):
     ## Langchain wants temp explicitly stated, so here we go
     temperature = kwargs["temperature"]
     del kwargs["temperature"]
-    if source == "chatGPT":
+    if source.lower() == "chatgpt":
         logging.info("Initializing OpenAI chatGPT LLM")
         llm = ChatOpenAI(
             model_name="gpt-3.5-turbo", temperature=temperature, model_kwargs=kwargs
         )
-    elif source == "llama-7B":
+    elif source.lower() == "llama-7B":
         logging.info("Initializing Facebook LLaMA 7B model")
         logging.warn("LLaMA is not yet implemented!")
         llm = None
-    elif source == "llama-13B":
+    elif source.lower() == "llama-13B":
         logging.info("Initializing Facebook LLaMA 13B model")
         logging.warn("LLaMA is not yet implemented!")
         llm = None
-    elif source == "local":
+    elif source.lower() == "local":
         logging.info("Initializing a locally hosted model ")
         assert "model_path" in kwargs, "model_path must be specified for a local model"
         llm = LlamaCpp(
