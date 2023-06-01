@@ -48,12 +48,13 @@ def for_summary(
     device: ty.Optional[str] = "cpu:0",
     limit: ty.Optional[int] = 3072,
 ) -> pl.DataFrame:
-    if Path(cache).exists():
+    if cache is not None and Path(cache).exists():
         sentence_df = pl.read_json(cache)
     else:
         sentence_df = pull_data_from_db(conn_str, query)
         sentence_df = tokenize_and_count(sentence_df)
-        sentence_df.write_json(cache)
+        if cache is not None:
+            sentence_df.write_json(cache)
     sentence_df = resolve_aliases(sentence_df)
 
     model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
