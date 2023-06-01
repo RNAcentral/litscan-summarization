@@ -867,6 +867,24 @@ qdrant = ["qdrant-client (>=1.1.2,<2.0.0)"]
 text-helpers = ["chardet (>=5.1.0,<6.0.0)"]
 
 [[package]]
+name = "llama-cpp-python"
+version = "0.1.56"
+description = "A Python wrapper for llama.cpp"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "llama_cpp_python-0.1.56.tar.gz", hash = "sha256:35aa5a0abbfa81d6317519701aed758a06152e471c525ac399ca42340822df42"},
+]
+
+[package.dependencies]
+numpy = ">=1.20.0,<2.0.0"
+typing-extensions = ">=4.6.2,<5.0.0"
+
+[package.extras]
+server = ["fastapi (>=0.95.0,<0.96.0)", "sse-starlette (>=1.3.3,<2.0.0)", "uvicorn (>=0.22.0,<0.23.0)"]
+
+[[package]]
 name = "llvmlite"
 version = "0.40.0"
 description = "lightweight wrapper around basic LLVM functionality"
@@ -1290,6 +1308,29 @@ files = [
 rsa = ["cryptography (>=3.0.0)"]
 signals = ["blinker (>=1.4.0)"]
 signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
+
+[[package]]
+name = "openai"
+version = "0.27.7"
+description = "Python client library for the OpenAI API"
+category = "main"
+optional = false
+python-versions = ">=3.7.1"
+files = [
+    {file = "openai-0.27.7-py3-none-any.whl", hash = "sha256:788fb7fa85bf7caac6c1ed7eea5984254a1bdaf09ef485acf0e5718c8b2dc25a"},
+    {file = "openai-0.27.7.tar.gz", hash = "sha256:bca95fd4c3054ef38924def096396122130454442ec52005915ecf8269626b1d"},
+]
+
+[package.dependencies]
+aiohttp = "*"
+requests = ">=2.20"
+tqdm = "*"
+
+[package.extras]
+datalib = ["numpy", "openpyxl (>=3.0.7)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
+dev = ["black (>=21.6b0,<22.0)", "pytest (>=6.0.0,<7.0.0)", "pytest-asyncio", "pytest-mock"]
+embeddings = ["matplotlib", "numpy", "openpyxl (>=3.0.7)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)", "plotly", "scikit-learn (>=1.0.2)", "scipy", "tenacity (>=8.0.1)"]
+wandb = ["numpy", "openpyxl (>=3.0.7)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)", "wandb"]
 
 [[package]]
 name = "openapi-schema-pydantic"
@@ -2539,4 +2580,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "6f2871add96265fcc1ec0915ae4dde38c023299de378c076c6a40176e9e4ae99"
+content-hash = "99bfc67a16220207bd48e35d97b919c51043597363095af2efd5a42c72810496"
