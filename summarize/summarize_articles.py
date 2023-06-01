@@ -4,14 +4,13 @@ from pathlib import Path
 
 import click
 import polars as pl
-from langchain.callbacks import get_openai_callback
-
 from chains.summarization import (
     get_reference_chain,
     get_summarizer_chain,
     get_veracity_chain,
     get_veracity_revision_chain,
 )
+from langchain.callbacks import get_openai_callback
 from llm_abstraction.models import get_model
 from sentence_selection import get_sentences
 from utils.context import build_context

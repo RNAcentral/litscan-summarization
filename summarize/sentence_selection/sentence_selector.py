@@ -11,10 +11,9 @@ import logging
 logging.getLogger().setLevel(logging.INFO)
 import numpy as np
 import polars as pl
-from sentence_transformers import util
-
 from sentence_selection.topic_modelling import run_topic_modelling
 from sentence_selection.utils import get_token_length
+from sentence_transformers import util
 
 
 def iterative_sentence_selector(row, model, token_limit=3072):

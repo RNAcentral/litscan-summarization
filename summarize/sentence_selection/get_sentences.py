@@ -3,7 +3,6 @@ import typing as ty
 from pathlib import Path
 
 import polars as pl
-
 from sentence_selection.aliases import resolve_aliases
 from sentence_selection.pull_sentences import pull_data_from_db
 from sentence_selection.sentence_selector import iterative_sentence_selector
