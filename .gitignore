@@ -7,3 +7,5 @@ summaries/*
 contexts/*
 *.json
 *.png
+.DS_Store
+.python-version
