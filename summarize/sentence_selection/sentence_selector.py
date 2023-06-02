@@ -79,9 +79,13 @@ def iterative_sentence_selector(row, model, token_limit=3072):
             for c in communities:
                 if len(c) > 0:  ## If there are sentences left in the community
                     selected_sentences.append(sentences[c.pop(0)])
+            if all([len(c) == 0 for c in communities]):
+                break  ## This would mean taking all the exemplars still doesn't hit the token limit
 
-        ## pop the last one, since by definition we went over by including it
-        selected_sentences.pop()
+        if sum(get_token_length(selected_sentences)) > token_limit:
+            logging.info(f"Too many sentences for {ent_id}, removing last sentence")
+            ## pop the last one, since by definition we went over by including it
+            selected_sentences.pop()
 
         return {
             "selected_sentences": selected_sentences,
