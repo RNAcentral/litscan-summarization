@@ -11,10 +11,11 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python get-pip.py
 # Install poetry
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
-# Copy poetry files
-COPY ./poetry.lock /poetry.lock
-COPY ./pyproject.toml /pyproject.toml
+# Copy everything
+COPY ./ /summarize
+WORKDIR /summarize
+
 
 # Install dependencies
 RUN PATH="$PATH:/root/.local/bin" poetry config virtualenvs.create false
-# RUN PATH="$PATH:/root/.local/bin" poetry install
+RUN PATH="$PATH:/root/.local/bin" poetry install

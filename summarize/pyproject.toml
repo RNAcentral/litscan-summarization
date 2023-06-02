@@ -4,7 +4,6 @@ version = "0.1.0"
 description = ""
 authors = ["Andrew Green <agreen@ebi.ac.uk>"]
 readme = "README.md"
-packages = [{include = "litscan_summarization"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
