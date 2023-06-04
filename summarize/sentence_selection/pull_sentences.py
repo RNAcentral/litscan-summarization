@@ -15,14 +15,20 @@ The result of the query will be available as a polars dataframe, and saved to JS
 
 import click
 import polars as pl
+import psycopg2
+import psycopg2.extras
 
 
 def pull_data_from_db(conn_str, query):
     """
     Just executes the pull using connextorx in the background. Should be directly writable to JSON, or useable as a dataframe.
     """
-
-    df = pl.read_database(query, conn_str, protocol="binary")
+    # conn = psycopg2.connect(conn_str)
+    # cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    # res = cur.execute(query).fetchall()
+    # df = pl.DataFrame(res)
+    ## Previously was done with connectorx, but that was problematic for the docker image
+    df = pl.read_database(query, conn_str, protocol="binary", engine="adbc")
     if df.schema["sentence"] != pl.List:
         print(
             "Sentence column is not a list, assuming we need to do string manipulation"
