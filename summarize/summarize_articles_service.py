@@ -64,7 +64,7 @@ def run_summary_job(job_ids, conn_str):
         conn_str,
         query=query,
         device=os.getenv("DEVICE", "cpu:0"),
-        limit=os.getenv("TOKEN_LIMIT", 2560),
+        limit=int(os.getenv("TOKEN_LIMIT", 2560)),
         cache=None,
     )
 
