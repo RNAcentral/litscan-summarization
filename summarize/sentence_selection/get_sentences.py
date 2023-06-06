@@ -31,8 +31,8 @@ def tokenize_and_count(sentence_df: pl.DataFrame, limit: ty.Optional[int] = 3072
     )
     df = df.with_columns(
         [
-            pl.col("num_tokens").arr.sum().alias("total"),
-            pl.col("pmcid").arr.lengths().alias("num_articles"),
+            pl.col("num_tokens").list.sum().alias("total"),
+            pl.col("pmcid").list.lengths().alias("num_articles"),
         ]
     ).sort("total", descending=True)
     print(
