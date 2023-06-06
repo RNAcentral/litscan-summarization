@@ -19,7 +19,7 @@ Settings = namedtuple(
 )
 
 
-def insert_rna_data(data_dict, conn_str, interactive=False):
+def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
     conn = psycopg2.connect(conn_str)
     cur = conn.cursor()
     if interactive:
@@ -37,8 +37,13 @@ def insert_rna_data(data_dict, conn_str, interactive=False):
                 print("Skipping!")
                 return
     else:
-        logging.warning("Overwriting data in database!")
-        cur.execute("truncate table litsumm_summaries")
+        if overwrite:
+            logging.warning("Overwriting data in database!")
+            cur.execute("truncate table litsumm_summaries")
+        else:
+            logging.warning(
+                "Appending data! Things might get funky if inserting duplicate entity IDs!"
+            )
 
     data = [
         (e["ent_id"], e["context"], e["summary"], e["cost"], e["total_tokens"])
