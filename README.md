@@ -33,7 +33,7 @@ Once everything is up and running, you should see messages about polling for new
 
 To submit an ID for processing, you do `curl -H "Content-Type:application/json" -d "{\"id\": \"bta-mir-16a\"}" localhost:8080/api/submit-job` which sends the request to the LitScan API. LitScan will then search for articles mentioning the ID (in this example bta-mir-16a) and put the results in the database, from where LitSumm will pick them up, run the summarization chain and place the summary into the database's `litsumm_summaries` table.
 
-To connect to the database, you can use a string that looks something like this: `psql postgres://litscan_user:any_pass@localhost:5432/litscan_db`
+To connect to the database, you can use a string that looks something like this: `psql postgres://litscan_user:any_pass@localhost:8082/litscan_db`
 
 For the above ID, the end-to-end processing time from submission to summary being saved in the database is ~2 minutes, and the cost is about $0.008. The summary produced looks like this:
 
