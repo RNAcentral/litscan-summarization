@@ -52,7 +52,7 @@ services:
     platform: linux/amd64
     build:
       context: ./summarize
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile-cpu
     env_file:
       - .env
     command: python summarize_articles_service.py
