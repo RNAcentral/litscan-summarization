@@ -19,6 +19,8 @@ services:
       - LITSCAN_PASSWORD=${LITSCAN_PASSWORD}
       - LITSCAN_DB=${LITSCAN_DB}
     restart: unless-stopped
+    ports:
+      - "8082:5432"
 
   producer:
     image: ghcr.io/rnacentral/litscan-producer:main
