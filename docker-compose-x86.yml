@@ -1,0 +1,62 @@
+version: '3'
+
+services:
+  database:
+    build:
+      context: .
+      dockerfile: sql/Dockerfile
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${LITSCAN_USER} -d ${LITSCAN_DB}'"]
+      interval: 5s
+      retries: 10
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+      - LITSCAN_USER=${LITSCAN_USER}
+      - LITSCAN_PASSWORD=${LITSCAN_PASSWORD}
+      - LITSCAN_DB=${LITSCAN_DB}
+    restart: unless-stopped
+
+  producer:
+    image: ghcr.io/rnacentral/litscan-producer:main
+    ports:
+      - "8080:8080"
+    environment:
+      ENVIRONMENT: "DOCKER"
+      LITSCAN_USER: ${LITSCAN_USER}
+      LITSCAN_PASSWORD: ${LITSCAN_PASSWORD}
+      LITSCAN_DB: ${LITSCAN_DB}
+    depends_on:
+      - database
+    restart: always
+
+  consumer:
+    image: ghcr.io/rnacentral/litscan-consumer:main
+    ports:
+      - "8081:8081"
+    environment:
+      ENVIRONMENT: "DOCKER"
+      LITSCAN_USER: ${LITSCAN_USER}
+      LITSCAN_PASSWORD: ${LITSCAN_PASSWORD}
+      LITSCAN_DB: ${LITSCAN_DB}
+    depends_on:
+      - database
+    restart: always
+
+  summarizer:
+    platform: linux/amd64
+    build:
+      context: ./summarize
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command: python summarize_articles_service.py
+    depends_on:
+      - database
+    restart: always
+
+volumes:
+  postgres_data:
