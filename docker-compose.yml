@@ -46,5 +46,17 @@ services:
       - database
     restart: always
 
+  summarizer:
+    platform: linux/arm64/v8
+    build:
+      context: ./summarize
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command: python summarize_articles_service.py
+    depends_on:
+      - database
+    restart: always
+
 volumes:
   postgres_data:

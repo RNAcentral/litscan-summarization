@@ -30,17 +30,21 @@ def poll_litscan_job():
     query = """
     SELECT j.job_id
     FROM litscan_job j
-    LEFT JOIN litscan_article_summaries a ON j.job_id = a.job_id
-    WHERE a.job_id IS NULL
-    AND litscan_job.status = 'success';
+    LEFT JOIN litsumm_summaries a ON j.job_id = a.rna_id
+    WHERE a.rna_id IS NULL
+    AND j.status = 'success';
     """
 
     while True:
-        res = cur.execute(query).fetchall()
+        logging.info("Polling for new jobs...")
+        cur.execute(query)  # .
+        res = cur.fetchall()
         if len(res) > 0:
+            ## convert the list of tuples to a list of ids - then re-tupleify later
+            res = [r[0] for r in res]
             logging.info(f"Got {len(res)} new jobs to summarize!)")
             run_summary_job(res, conn_str)
-        sleep(300)
+        sleep(30)
 
 
 def run_summary_job(job_ids, conn_str):
@@ -51,7 +55,9 @@ def run_summary_job(job_ids, conn_str):
     conn = psycopg2.connect(conn_str)
     cur = conn.cursor()
     query_template = open("polling_query.sql", "r").read()
-    query = cur.mogrify(query_template, (tuple(job_ids),))
+    placeholders = ",".join(["%s"] * len(job_ids))
+    query = query_template.format(placeholders=placeholders)
+    query = cur.mogrify(query, tuple(job_ids))
 
     logging.info("Pulling sentences...")
     sentence_df = get_sentences.for_summary(
@@ -85,7 +91,7 @@ def run_summary_job(job_ids, conn_str):
             }
         )
     logging.info("Inserting all summaries into database...")
-    insert_rna_data(data_for_db)
+    insert_rna_data(data_for_db, conn_str)
 
 
 if __name__ == "__main__":
