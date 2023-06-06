@@ -1,15 +1,22 @@
-select result_id, max(primary_id) as primary_id, (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
-				(array_agg( DISTINCT lsr.job_id))[1] as job_id,
-				(array_agg(sentence))[1] as sentence
-from embassy_rw.litscan_body_sentence lsb
-join embassy_rw.litscan_result lsr on lsr.id = lsb.result_id
-join embassy_rw.litscan_database lsdb on lsdb.job_id = lsr.job_id
-join embassy_rw.litscan_article lsa on lsa.pmcid = lsr.pmcid
-where name in ('pombase', 'hgnc', 'wormbase', 'mirbase', 'snodb', 'tair', 'sgd', 'pdbe', 'genecards', 'gtrnadb', 'mirgenedb', 'refseq', 'rfam', 'zfin' )
-and retracted = false
-and lsr.job_id in %s
-and not sentence like '%found in an image%'
-and primary_id is not NULL
-group by result_id
+select t.primary_id,
+		(array_agg(t.result_id)) as result_id,
+		(array_agg(t.pmcid)) as pmcid,
+      (array_agg(t.job_id)) as job_id,
+		(array_agg(t.sentence)) as sentence
 
--- having cardinality(array_agg(lsb.id)) > 2 and cardinality(array_agg(DISTINCT lsr.job_id)) = 1
+	from(
+	-- subquery selects only first hit from each article
+    select lsb.result_id,
+            (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
+            (array_agg( DISTINCT lsr.job_id))[1] as primary_id,
+                (array_agg( DISTINCT lsr.job_id))[1] as job_id,
+            (array_agg(lsb.sentence))[1] as sentence
+    from litscan_body_sentence lsb
+    join litscan_result lsr on lsr.id = lsb.result_id
+    join litscan_article lsa on lsa.pmcid = lsr.pmcid
+    and lsa.retracted = false
+    and lsr.job_id in ({placeholders})
+    and not lsb.sentence like '%%found in an image%%'
+    group by lsb.result_id
+    ) as t
+    group by t.primary_id
