@@ -38,3 +38,20 @@ To connect to the database, you can use a string that looks something like this:
 For the above ID, the end-to-end processing time from submission to summary being saved in the database is ~2 minutes, and the cost is about $0.008. The summary produced looks like this:
 
     Bta-mir-16a is a miRNA that has been studied in various contexts. It has been quantified in oxidized RNA solutions and used as an internal control to normalize the read counts of other miRNAs [PMC9866016]. It has also been found to be significantly up-regulated in the summer in comparison to Sahiwal [PMC9686552]. Bta-mir-16a is one of five miRNAs related to bovine mastitis inflammation and targets four differentially expressed genes [PMC8511192]. In B cell chronic lymphocytic leukemia, the expression of bta-mir-16a is down-regulated, but it was found to be the most stable miRNA in B cells among all 22 cattle, both BLV-infected and BLV-uninfected cattle [PMC8432782]. Bta-mir-16a was also one of the most abundant miRNAs identified among 510 mature miRNAs, with bta-miR-21-5p being the most highly expressed [PMC6600136]. In addition, bta-mir-16a was found to be significantly upregulated in mastitis-affected dairy cows compared with healthy cows [PMC6107498]. Finally, bta-mir-16a was differentially regulated by SFO and had high intra-modular connectivity suggesting involvement in regulating traits that were significantly correlated with the turquoise module in SFO treatment [PMC6164576].
+
+
+
+## Troubleshooting
+
+### I see warnings about numba
+
+This is to do with the implementation of UMAP used in the topic modelling being based on an older version of numba in which there are some deprecated features. It will still work, and at some point the package will be updated and they'll go away.
+
+### I get an error about duplicate keys in litscan_consumer
+This happens because the network in docker changes between runs. One way to fix it is to delete the volume associated with the containers, but this will also nuke your summaries if you've already made some.
+
+Better is to do the following:
+
+1. `docker compose -f docker-compose-mac.yml up database` to bring the database up
+2. `psql postgres://litscan_user:any_pass@localhost:8082/litscan_db` to connect to the database
+3. `TRUNCATE TABLE litscan_consumer` to clear out the table and start again
