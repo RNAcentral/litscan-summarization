@@ -72,7 +72,8 @@ def run_summary_job(job_ids, conn_str):
         logging.info("No sentences to summarize!")
         return
     ## Filter out IDs with no sentences
-    sentence_df = sentence_df.filter(pl.col("sentence").list.lengths() > 0)
+    print(sentence_df)
+    sentence_df = sentence_df.filter(pl.col("selected_sentences ").list.lengths() > 0)
 
     if len(sentence_df) == 0:
         logging.info("No sentences to summarize!")
