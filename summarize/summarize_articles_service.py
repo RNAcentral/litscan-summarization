@@ -32,7 +32,7 @@ def poll_litscan_job():
     FROM litscan_job j
     LEFT JOIN litsumm_summaries a ON j.job_id = a.rna_id
     WHERE a.rna_id IS NULL
-    AND j.status = 'success';
+    AND j.hit_count > 0;
     """
 
     while True:
