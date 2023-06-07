@@ -52,6 +52,10 @@ def for_summary(
         sentence_df = pl.read_json(cache)
     else:
         sentence_df = pull_data_from_db(conn_str, query)
+        if len(sentence_df) == 0:
+            ## No sentences to summarize
+            return None
+
         sentence_df = tokenize_and_count(sentence_df)
         if cache is not None:
             sentence_df.write_json(cache)

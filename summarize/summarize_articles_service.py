@@ -68,7 +68,9 @@ def run_summary_job(job_ids, conn_str):
         limit=int(os.getenv("TOKEN_LIMIT", 2560)),
         cache=None,
     )
-
+    if sentence_df is None:
+        logging.info("No sentences to summarize!")
+        return
     ## Filter out IDs with no sentences
     sentence_df = sentence_df.filter(pl.col("sentence").list.lengths() > 0)
 
