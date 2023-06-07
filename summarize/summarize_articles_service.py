@@ -8,6 +8,7 @@ import logging
 import os
 from time import sleep
 
+import polars as pl
 import psycopg2
 
 logging.getLogger().setLevel(logging.INFO)
@@ -67,6 +68,13 @@ def run_summary_job(job_ids, conn_str):
         limit=int(os.getenv("TOKEN_LIMIT", 2560)),
         cache=None,
     )
+
+    ## Filter out IDs with no sentences
+    sentence_df = sentence_df.filter(pl.col("sentence").list.lengths() > 0)
+
+    if len(sentence_df) == 0:
+        logging.info("No sentences to summarize!")
+        return
 
     data_for_db = []
     for row in sentence_df.iter_rows(named=True):
