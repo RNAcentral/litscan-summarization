@@ -1,27 +1,32 @@
 ## LitSumm - summarize literature with LLMs
 
 ### What is this
-The single entrypoint for the LitScan + LitSumm literature scanning and summarization tool. With the stuff here, you should be able to search for an RNA and generate summaries from the literature.
+The single entrypoint for the LitScan + LitSumm literature scanning and summarization tool. With the stuff here, 
+you should be able to search for an RNA (or anything else) and generate summaries from the literature.
 
 ### How do I use it
 
-You should be able to just run `docker compose -f docker-compose-{mac,x86}.yml up --build` in this repo to have a functioning LitScan + LitSumm working locally.
+You should be able to just run `docker compose -f docker-compose-{mac,x86}.yml up --build` in this repo to have a 
+functioning LitScan + LitSumm working locally.
 
-Some of the dependencies don't play well with the emulation on Apple silicon, so there is a separate compose file for each architecture.
+Some of the dependencies don't play well with the emulation on Apple silicon, so there is a separate compose file 
+for each architecture.
 
 #### Preparation
-You will need a .env file in this directory with the following contents:
-
-1. ENVIRONMENT=docker
-2. LITSCAN_USER=litscan_user
-3. LITSCAN_PASSWORD=any_pass
-4. LITSCAN_DB=litscan_db
-5. DEVICE=cpu:0
-6. MODEL_NAME=chatGPT
-7. TOKEN_LIMIT=2560
-8. OPENAI_API_KEY=<your api key here>
+You will need a `.env` file in this directory with the following contents:
+```
+ENVIRONMENT=docker
+LITSCAN_USER=litscan_user
+LITSCAN_PASSWORD=any_pass
+LITSCAN_DB=litscan_db
+DEVICE=cpu:0
+MODEL_NAME=chatGPT
+TOKEN_LIMIT=2560
+OPENAI_API_KEY=<your api key here>
+```
 
 Some notes:
+- You can use any value for LITSCAN_USER, LITSCAN_PASSWORD and LITSCAN_DB
 - DEVICE can also be `mps` or `cuda` if you have those available.
 - MODEL_NAME should always be chatGPT for now - in future this is where we will make the pipeline use local models
 - TOKEN_LIMIT could be a bit higher, but this is the acceptable safety margin so that responses are not truncated. I would not set this higher than 3072.
@@ -31,24 +36,73 @@ To launch, run `docker compose -f docker-compose-mac.yml up --build` (substitute
 
 Once everything is up and running, you should see messages about polling for new jobs. This mean's you're ready to go.
 
-To submit an ID for processing, you do `curl -H "Content-Type:application/json" -d "{\"id\": \"bta-mir-16a\"}" localhost:8080/api/submit-job` which sends the request to the LitScan API. LitScan will then search for articles mentioning the ID (in this example bta-mir-16a) and put the results in the database, from where LitSumm will pick them up, run the summarization chain and place the summary into the database's `litsumm_summaries` table.
+#### Submit jobs
 
-To connect to the database, you can use a string that looks something like this: `psql postgres://litscan_user:any_pass@localhost:8082/litscan_db`
+To submit an ID for processing, you do 
+```
+curl -H "Content-Type:application/json" -d "{\"id\": \"bta-mir-16a\"}" localhost:8080/api/submit-job
+```
+which sends the request to the LitScan API. LitScan will then search for articles mentioning the ID 
+(in this example `bta-mir-16a`) and put the results in the database, from where LitSumm will pick them up, 
+run the summarization chain and place the summary into the database's `litsumm_summaries` table.
 
-For the above ID, the end-to-end processing time from submission to summary being saved in the database is ~2 minutes, and the cost is about $0.008. The summary produced looks like this:
+To connect to the database, you can use a string that looks something like this:
+```
+psql postgres://litscan_user:any_pass@localhost:8082/litscan_db
+```
 
-    Bta-mir-16a is a miRNA that has been studied in various contexts. It has been quantified in oxidized RNA solutions and used as an internal control to normalize the read counts of other miRNAs [PMC9866016]. It has also been found to be significantly up-regulated in the summer in comparison to Sahiwal [PMC9686552]. Bta-mir-16a is one of five miRNAs related to bovine mastitis inflammation and targets four differentially expressed genes [PMC8511192]. In B cell chronic lymphocytic leukemia, the expression of bta-mir-16a is down-regulated, but it was found to be the most stable miRNA in B cells among all 22 cattle, both BLV-infected and BLV-uninfected cattle [PMC8432782]. Bta-mir-16a was also one of the most abundant miRNAs identified among 510 mature miRNAs, with bta-miR-21-5p being the most highly expressed [PMC6600136]. In addition, bta-mir-16a was found to be significantly upregulated in mastitis-affected dairy cows compared with healthy cows [PMC6107498]. Finally, bta-mir-16a was differentially regulated by SFO and had high intra-modular connectivity suggesting involvement in regulating traits that were significantly correlated with the turquoise module in SFO treatment [PMC6164576].
+For the above ID, the end-to-end processing time from submission to summary being saved in the database is ~2 minutes, 
+and the cost is about $0.008. The summary produced looks like this:
+```
+Bta-mir-16a is a miRNA that has been studied in various contexts. It has been quantified in oxidized RNA solutions and 
+used as an internal control to normalize the read counts of other miRNAs [PMC9866016]. It has also been found to be 
+significantly up-regulated in the summer in comparison to Sahiwal [PMC9686552]. Bta-mir-16a is one of five miRNAs 
+related to bovine mastitis inflammation and targets four differentially expressed genes [PMC8511192]. In B cell chronic 
+lymphocytic leukemia, the expression of bta-mir-16a is down-regulated, but it was found to be the most stable miRNA in 
+B cells among all 22 cattle, both BLV-infected and BLV-uninfected cattle [PMC8432782]. Bta-mir-16a was also one of the 
+most abundant miRNAs identified among 510 mature miRNAs, with bta-miR-21-5p being the most highly expressed 
+[PMC6600136]. In addition, bta-mir-16a was found to be significantly upregulated in mastitis-affected dairy cows 
+compared with healthy cows [PMC6107498]. Finally, bta-mir-16a was differentially regulated by SFO and had high 
+intra-modular connectivity suggesting involvement in regulating traits that were significantly correlated with the 
+turquoise module in SFO treatment [PMC6164576].
+```
 
+Be aware that **some IDs can have a huge amount of articles to parse, which can take a long time to run**.
+To avoid this problem, you can set a maximum number of articles to be searched by LitScan as follows
+```
+curl -H "Content-Type:application/json" -d "{\"id\": \"NEAT1\", \"search_limit\": 100}" localhost:8080/api/submit-job
+```
 
+Another important detail about LitScan is that **by default the following query is used**
+```
+query=("NEAT1" AND ("rna" OR "mrna" OR "ncrna" OR "lncrna" OR "rrna" OR "sncrna"))
+```
+
+Where:
+1. `"NEAT1"` is the string used in the search
+2. `("rna" OR "mrna" OR "ncrna" OR "lncrna" OR "rrna" OR "sncrna")` is used to filter out possible false positives
+
+If you want to run a non-RNA related job, use the `query` parameter to change the query
+```
+curl -H "Content-Type:application/json" -d "{\"id\": \"P2_Phage_GpR\", \"query\": \"('protein' AND 'domain')\"}" localhost:8080/api/submit-job
+```
+
+Or if you only want to use the id, run
+```
+curl -H "Content-Type:application/json" -d "{\"id\": \"P2_Phage_GpR\", \"query\": \"\"}" localhost:8080/api/submit-job
+```
 
 ## Troubleshooting
 
 ### I see warnings about numba
 
-This is to do with the implementation of UMAP used in the topic modelling being based on an older version of numba in which there are some deprecated features. It will still work, and at some point the package will be updated and they'll go away.
+This is to do with the implementation of UMAP used in the topic modelling being based on an older version of numba 
+in which there are some deprecated features. It will still work, and at some point the package will be updated and 
+they'll go away.
 
 ### I get an error about duplicate keys in litscan_consumer
-This happens because the network in docker changes between runs. One way to fix it is to delete the volume associated with the containers, but this will also nuke your summaries if you've already made some.
+This happens because the network in docker changes between runs. One way to fix it is to delete the volume associated 
+with the containers, but this will also nuke your summaries if you've already made some.
 
 Better is to do the following:
 
