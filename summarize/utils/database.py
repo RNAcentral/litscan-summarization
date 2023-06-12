@@ -46,10 +46,18 @@ def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
             )
 
     data = [
-        (e["ent_id"], e["context"], e["summary"], e["cost"], e["total_tokens"])
+        (
+            e["ent_id"],
+            e["context"],
+            e["summary"],
+            e["cost"],
+            e["total_tokens"],
+            e["attempts"],
+            e["truthful"],
+        )
         for e in data_dict
     ]
-    insert_query = "insert into litsumm_summaries (rna_id, context, summary, cost, total_tokens) values %s"
+    insert_query = "insert into litsumm_summaries (rna_id, context, summary, cost, total_tokens, attempts, truthful) values %s"
     execute_values(cur, insert_query, data, page_size=100)
     conn.commit()
     cur.close()

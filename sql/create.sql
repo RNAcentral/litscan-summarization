@@ -4,5 +4,7 @@ rna_id text,
 context text,
 summary text,
 cost float,
-total_tokens int
+total_tokens int,
+attempt int,
+truthful boolean
 );

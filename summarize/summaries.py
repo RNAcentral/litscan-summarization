@@ -107,8 +107,14 @@ def generate_summary(
             cost += cb.total_cost
 
         print(veracity_check_result)
-        if re.search(r".*False.*", veracity_check_result):
-            logging.warning("Untrue statements found in summary, revising accordingly")
+        truthful = not (
+            re.search(r".*False.*", veracity_check_result)
+            or re.search(r".*Misleading.*", veracity_check_result)
+        )
+        if not truthful:
+            logging.warning(
+                "Untrue/misleading statements found in summary, revising accordingly"
+            )
             with get_openai_callback() as cb:
                 summary = veracity_revision_chain.run(
                     checked_assertions=veracity_check_result, summary=summary
@@ -117,4 +123,4 @@ def generate_summary(
                 total_tokens += cb.total_tokens
                 cost += cb.total_cost
 
-    return summary, cost, total_tokens
+    return summary, cost, total_tokens, attempt, truthful

@@ -73,7 +73,7 @@ def run_summary_job(job_ids, conn_str):
         return
     ## Filter out IDs with no sentences
     print(sentence_df)
-    sentence_df = sentence_df.filter(pl.col("selected_sentences ").list.lengths() > 0)
+    # sentence_df = sentence_df.filter(pl.col("selected_sentences ").list.lengths() > 0)
 
     if len(sentence_df) == 0:
         logging.info("No sentences to summarize!")
@@ -82,7 +82,7 @@ def run_summary_job(job_ids, conn_str):
     data_for_db = []
     for row in sentence_df.iter_rows(named=True):
         context = build_context(row["selected_sentences"], row["selected_pmcids"])
-        summary, cost, total_tokens = generate_summary(
+        summary, cost, total_tokens, attempts, truthful = generate_summary(
             os.getenv("MODEL_NAME", "chatGPT"),
             row["primary_id"],
             context,
@@ -99,6 +99,8 @@ def run_summary_job(job_ids, conn_str):
                 "summary": summary,
                 "cost": cost,
                 "total_tokens": total_tokens,
+                "attempts": attempts,
+                "truthful": truthful,
             }
         )
     logging.info("Inserting all summaries into database...")
