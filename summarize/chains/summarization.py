@@ -17,10 +17,13 @@ def get_summarizer_prompt() -> ChatPromptTemplate:
     context_padding = (
         "As an experienced academic who ALWAYS provides references for each sentence you write, "
         "produce a summary from the text below, focusing on {ent_id} and using the references for each sentence. "
+        "\n\n{context_str}\n"
         "The reference for each sentence in the text is given at the end of the sentence, enclosed by []. "
-        "You MUST provide at least one reference per sentence you produce. "
-        "Use only the information in the context given below. "
-        "Use 200 words or less.\n\n{context_str}\n"
+        "For example, the first sentence has the reference [{first_ref}]. "
+        "You should use the same format for references in your summary. "
+        "You MUST provide at least one reference per sentence you produce."
+        "Use only the information in the context given above. "
+        "Use 200 words or less."
         "\nSummary:"
     )
     # 91 tokens - call it 100 for ID as well
@@ -39,6 +42,8 @@ def get_revision_prompt() -> ChatPromptTemplate:
         "and its original context: \n{context_str}\n"
         "rewrite the summary to include at least one reference at the end of each sentence. "
         "References are provided in the original context, enclosed in [].\n"
+        "For example, the first sentence has the reference [{first_ref}]. "
+        "You should use the same format for references in your summary. "
         "Revised Summary: "
     )
 

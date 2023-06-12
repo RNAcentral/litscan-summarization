@@ -11,6 +11,8 @@ from langchain.callbacks import get_openai_callback
 from llm_abstraction.models import get_model
 from utils.validation import validate_summary
 
+pmcid_pattern = re.compile(r"PMC\d+")
+
 
 def generate_summary(
     model_name,
@@ -64,8 +66,11 @@ def generate_summary(
     )
     total_tokens = 0
     cost = 0
+    first_ref = pmcid_pattern.findall(context)[0]
     with get_openai_callback() as cb:
-        summary = summary_chain.run(ent_id=ent_id, context_str=context)
+        summary = summary_chain.run(
+            ent_id=ent_id, context_str=context, first_ref=first_ref
+        )
         print(cb)
         total_tokens += cb.total_tokens
         cost += cb.total_cost
@@ -84,7 +89,7 @@ def generate_summary(
         )
         with get_openai_callback() as cb:
             summary = reference_chain.run(
-                ent_id=ent_id, context_str=context, summary=summary
+                ent_id=ent_id, context_str=context, summary=summary, first_ref=first_ref
             )
             print(cb)
             total_tokens += cb.total_tokens
