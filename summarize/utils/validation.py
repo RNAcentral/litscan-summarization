@@ -16,10 +16,10 @@ def contains_adequate_references(summary: str) -> bool:
     num_references = len(pmcid_pattern.findall(summary))
 
     ## this is a somewhat arbitrary threshold, but should make for reasonably well referenced passages
-    if num_references / num_sentences > 0.75:
+    if num_references / num_sentences > 0.5:
         return True
     logging.warn(
-        f"Reference/sentence ratio was {num_references/num_sentences}, which is below threshold of 0.75"
+        f"Reference/sentence ratio was {num_references/num_sentences}, which is below threshold of 0.5"
     )
 
     return False
