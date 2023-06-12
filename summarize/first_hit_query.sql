@@ -25,7 +25,6 @@ select t.primary_id,
 
             and not lsb.sentence like '%found in an image%'
             and lsdb.primary_id is not NULL
-            and lsr.job_id in ('bta-mir-16a', 'bta-mir-30b-5p')
             group by lsb.result_id
         ) as t
     group by t.primary_id
