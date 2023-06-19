@@ -53,7 +53,9 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         logging.info(
             f"No communities for {ent_id}, re-running with smaller minimum cluster size"
         )
-        row, communities = run_topic_modelling(row, model, min_cluster_size=3)
+        row, communities = run_topic_modelling(
+            row, model, min_cluster_size=3, min_samples=1
+        )
     sentences = np.array(sentences)
     pmcids = np.array(pmcids)
 
