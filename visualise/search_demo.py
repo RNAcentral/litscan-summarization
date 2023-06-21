@@ -1,6 +1,7 @@
 import os
 import re
 from collections import namedtuple
+from random import choices
 
 import gradio as gr
 import psycopg2 as pg
@@ -116,6 +117,17 @@ def get_postgres_credentials(ENVIRONMENT):
         )
 
 
+def select_examples(conn_str):
+    if conn_str is None:
+        conn_str = os.getenv("PGDATABASE")
+    conn = pg.connect(conn_str)
+    cur = conn.cursor()
+    cur.execute("select rna_id from litsumm_summaries")
+    res = [a[0] for a in cur.fetchall()]
+    ids = choices(res, k=10)
+    return ids
+
+
 def search_db(ent_id, conn_str=None):
     if conn_str is None:
         conn_str = os.getenv("PGDATABASE")
@@ -175,7 +187,6 @@ else:
     credentials = get_postgres_credentials(ENVIRONMENT)
     conn_str = f"postgresql://{credentials.POSTGRES_USER}:{credentials.POSTGRES_PASSWORD}@{credentials.POSTGRES_HOST}/{credentials.POSTGRES_DATABASE}"
 
-
 visualisation = gr.Blocks()
 
 with visualisation:
@@ -186,6 +197,8 @@ with visualisation:
     with gr.Row():
         id_input = gr.Textbox(label="ID to search for")
         search_button = gr.Button(value="Search")
+    with gr.Row():
+        examples = gr.Examples(select_examples(conn_str), id_input)
 
     with gr.Row():
         summary = gr.Textbox(label="Summary")
