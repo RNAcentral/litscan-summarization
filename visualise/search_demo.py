@@ -169,8 +169,11 @@ def search_db(ent_id, conn_str=None):
 
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "LOCAL")
-credentials = get_postgres_credentials(ENVIRONMENT)
-conn_str = f"postgresql://{credentials.POSTGRES_USER}:{credentials.POSTGRES_PASSWORD}@{credentials.POSTGRES_HOST}/{credentials.POSTGRES_DATABASE}"
+if ENVIRONMENT == "LOCAL":
+    conn_str = None
+else:
+    credentials = get_postgres_credentials(ENVIRONMENT)
+    conn_str = f"postgresql://{credentials.POSTGRES_USER}:{credentials.POSTGRES_PASSWORD}@{credentials.POSTGRES_HOST}/{credentials.POSTGRES_DATABASE}"
 
 
 visualisation = gr.Blocks()
@@ -198,6 +201,22 @@ with visualisation:
         veracity_prompt = gr.Textbox(label="Veracity Prompt")
         veracity_rescue_prompt = gr.Textbox(label="Veracity Rescue Prompt")
 
+    id_input.submit(
+        lambda x: search_db(x, conn_str),
+        inputs=id_input,
+        outputs=[
+            summary,
+            context,
+            tokens,
+            cost,
+            attempts,
+            truthful,
+            initial_prompt,
+            rescue_prompt,
+            veracity_prompt,
+            veracity_rescue_prompt,
+        ],
+    )
     search_button.click(
         lambda x: search_db(x, conn_str),
         inputs=id_input,
