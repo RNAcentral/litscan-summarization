@@ -76,6 +76,7 @@ def generate_summary(
         cost += cb.total_cost
 
     validation = validate_summary(summary, context)
+    problem_summary = False
     attempt = 1
     while not all(validation.values()):
         if attempt >= max_rescue_attempts:
@@ -83,6 +84,7 @@ def generate_summary(
                 f"Unable to generate a good summary for {ent_id}. Returning what we have and giving up"
             )
             # return summary
+            problem_summary = True
             break
         logging.warning(
             "Summary auto validation failed! Running reference insertion chain to rescue..."
@@ -128,4 +130,12 @@ def generate_summary(
                 total_tokens += cb.total_tokens
                 cost += cb.total_cost
 
-    return summary, cost, total_tokens, attempt, truthful
+    return (
+        summary,
+        cost,
+        total_tokens,
+        attempt,
+        problem_summary,
+        truthful,
+        veracity_check_result,
+    )

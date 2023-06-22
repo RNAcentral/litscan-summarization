@@ -13,11 +13,12 @@ from summaries import generate_summary
 @click.command()
 @click.option("--context_output_dir", default="contexts", type=click.Path())
 @click.option("--summary_output_dir", default="summaries", type=click.Path())
+@click.option("--veracity_output_dir", default="veracity_checks", type=click.Path())
 @click.option("--cached_sentences", default="sentences.json", type=click.Path())
 @click.option("--conn_str", envvar="PGDATABASE")
 @click.option("--device", default="cpu:0")
 @click.option("--query_file", default="query.sql")
-@click.option("--token_limit", default=3072)
+@click.option("--token_limit", default=2560)
 @click.option("--evaluate_truth", default=True, is_flag=True)
 @click.option("--write_db", default=False, is_flag=True)
 @click.option("--write_json", default=False, is_flag=True)
@@ -30,6 +31,7 @@ from summaries import generate_summary
 def main(
     context_output_dir,
     summary_output_dir,
+    veracity_output_dir,
     cached_sentences,
     evaluate_truth,
     generation_limit,
@@ -49,9 +51,13 @@ def main(
     context_output_dir.mkdir(parents=True, exist_ok=True)
     summary_output_dir = Path(summary_output_dir)
     summary_output_dir.mkdir(parents=True, exist_ok=True)
+    veracity_output_dir = Path(veracity_output_dir)
+    veracity_output_dir.mkdir(parents=True, exist_ok=True)
 
     if model_path is not None:
         extra_args = {"model_path": model_path}
+    else:
+        extra_args = {}
 
     data_for_db = []
 
@@ -81,7 +87,15 @@ def main(
         ) as context_output:
             context_output.write(context)
 
-        summary, cost, total_tokens = generate_summary(
+        (
+            summary,
+            cost,
+            total_tokens,
+            attempts,
+            problem_summary,
+            truthful,
+            veracity_check_result,
+        ) = generate_summary(
             model_name,
             row["primary_id"],
             context,
@@ -92,6 +106,11 @@ def main(
             summary_output_dir / f"{row['primary_id']}.txt", "w"
         ) as summary_output:
             summary_output.write(summary)
+
+        with open(
+            veracity_output_dir / f"{row['primary_id']}.txt", "w"
+        ) as veracity_output:
+            veracity_output.write(veracity_check_result)
         ids_done += 1
 
         data_for_db.append(
@@ -101,6 +120,10 @@ def main(
                 "summary": summary,
                 "cost": cost,
                 "total_tokens": total_tokens,
+                "attempts": attempts,
+                "problem_summary": problem_summary,
+                "truthful": truthful,
+                "consistency_check_result": veracity_check_result,
             }
         )
         if generation_limit < 0:
@@ -110,7 +133,7 @@ def main(
 
     if write_db:
         ## Insert the results into my database
-        insert_rna_data(data_for_db)
+        insert_rna_data(data_for_db, conn_str)
 
     if write_json:
         ## Write the results to parquet
