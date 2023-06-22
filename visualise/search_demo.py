@@ -231,7 +231,7 @@ with visualisation:
         tokens = gr.Number(label="Tokens", interactive=False)
         cost = gr.Number(label="Cost", interactive=False)
         attempts = gr.Number(label="Attempts", interactive=False)
-        probelmatic = gr.Checkbox(label="Problematic", interactive=False)
+        problematic = gr.Checkbox(label="Problematic", interactive=False)
         truthful = gr.Checkbox(label="Truthful", interactive=False)
 
     with gr.Row():
