@@ -124,7 +124,9 @@ def generate_summary(
             )
             with get_openai_callback() as cb:
                 summary = veracity_revision_chain.run(
-                    checked_assertions=veracity_check_result, summary=summary
+                    checked_assertions=veracity_check_result,
+                    summary=summary,
+                    first_ref=first_ref,
                 )
                 print(cb)
                 total_tokens += cb.total_tokens
