@@ -136,20 +136,42 @@ def search_db(ent_id, conn_str=None):
     cur.execute("select * from litsumm_summaries where rna_id = %s", (ent_id.lower(),))
     res = cur.fetchone()
     if res is None:
-        context, summary, cost, total_tokens, attempts, truthful = (
+        (
+            context,
+            summary,
+            cost,
+            total_tokens,
+            attempts,
+            truthful,
+            problematic_summary,
+            veracity_result,
+        ) = (
             "Not Found",
             "Not Found",
             0,
             0,
             0,
             None,
+            None,
+            "Not Found",
         )
         prompt_1 = "Not Found"
         prompt_2 = "Not Found"
         prompt_3 = "Not Found"
         prompt_4 = "Not Found"
     else:
-        s_id, _, context, summary, cost, total_tokens, attempts, truthful = res
+        (
+            s_id,
+            _,
+            context,
+            summary,
+            cost,
+            total_tokens,
+            attempts,
+            truthful,
+            problematic_summary,
+            veracity_result,
+        ) = res
         first_ref = pmcid_pattern.findall(context)[0]
         prompt_1 = context_padding.format(
             ent_id=ent_id, context_str=context, first_ref=first_ref
@@ -172,11 +194,13 @@ def search_db(ent_id, conn_str=None):
         total_tokens,
         cost,
         attempts,
+        problematic_summary,
         truthful,
         prompt_1,
         prompt_2,
         prompt_3,
         prompt_4,
+        veracity_result,
     )
 
 
@@ -207,12 +231,17 @@ with visualisation:
         tokens = gr.Number(label="Tokens", interactive=False)
         cost = gr.Number(label="Cost", interactive=False)
         attempts = gr.Number(label="Attempts", interactive=False)
+        probelmatic = gr.Checkbox(label="Problematic", interactive=False)
         truthful = gr.Checkbox(label="Truthful", interactive=False)
+
     with gr.Row():
         initial_prompt = gr.Textbox(label="Initial Prompt")
         rescue_prompt = gr.Textbox(label="Rescue Prompt")
         veracity_prompt = gr.Textbox(label="Veracity Prompt")
         veracity_rescue_prompt = gr.Textbox(label="Veracity Rescue Prompt")
+
+    with gr.Row():
+        veracity_output = gr.Textbox(label="Veracity Output")
 
     id_input.submit(
         lambda x: search_db(x, conn_str),
@@ -223,11 +252,13 @@ with visualisation:
             tokens,
             cost,
             attempts,
+            problematic,
             truthful,
             initial_prompt,
             rescue_prompt,
             veracity_prompt,
             veracity_rescue_prompt,
+            veracity_output,
         ],
     )
     search_button.click(
@@ -239,11 +270,13 @@ with visualisation:
             tokens,
             cost,
             attempts,
+            problematic,
             truthful,
             initial_prompt,
             rescue_prompt,
             veracity_prompt,
             veracity_rescue_prompt,
+            veracity_output,
         ],
     )
 
