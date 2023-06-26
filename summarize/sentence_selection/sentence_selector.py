@@ -43,6 +43,7 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         return {
             "selected_sentences": sentences,
             "selected_pmcids": pmcids,
+            "method": "all",
         }
 
     ## If we have too many, use topic modelling
@@ -80,7 +81,9 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         while sum(get_token_length(selected_sentences)) < token_limit:
             for c in communities:
                 if len(c) > 0:  ## If there are sentences left in the community
-                    selected_sentences.append(sentences[c.pop(0)])
+                    idx = c.pop(0)
+                    selected_sentences.append(sentences[idx])
+                    selected_pmcids.append(pmcids[idx])
             if all([len(c) == 0 for c in communities]):
                 break  ## This would mean taking all the exemplars still doesn't hit the token limit
 
@@ -88,10 +91,12 @@ def iterative_sentence_selector(row, model, token_limit=3072):
             logging.info(f"Too many sentences for {ent_id}, removing last sentence")
             ## pop the last one, since by definition we went over by including it
             selected_sentences.pop()
+            selected_pmcids.pop()
 
         return {
             "selected_sentences": selected_sentences,
             "selected_pmcids": selected_pmcids,
+            "method": "round-robin",
         }
 
     logging.info(f"{ent_id} has too many clusters to use round-robin selection")
@@ -154,8 +159,12 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         total_tokens = sum(get_token_length(selected_sentences))
         if total_tokens >= token_limit:
             selected_sentences.pop()
+            selected_pmcids.pop()
+            selected_idxs.pop()
+            selected_embeddings.pop()
             break
     return {
         "selected_sentences": selected_sentences,
         "selected_pmcids": selected_pmcids,
+        "method": "greedy:",
     }
