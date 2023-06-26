@@ -1,0 +1,260 @@
+<!doctype html>
+{% extends "base.html" %}
+{% block title %}Is this summary for {{rna_id}} good?{% endblock %}
+{% block content %}
+<div class="accordion" id="contextDisplay">
+<div class="accordion-item">
+  <h2 class="accordion-header">
+    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+      Context
+    </button>
+  </h2>
+  <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#contextDisplay">
+    <div class="accordion-body">
+      {{ context }}
+    </div>
+  </div>
+</div>
+</div>
+
+  <div class="container-fluid text-wrap">
+    <h1 class="text-center">{{ rna_id }}</h1>
+    <p class="text-start">{{ summary }}</p>
+  </div>
+
+
+  <div class="container-fluid text-center">
+
+    <div class="btn-group" role="group" aria-label="Basic mixed styles example">
+      <button type="button" type="submit" class="btn btn-danger" id="prev_id" >Previous</button>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option1">
+        <label class="form-check-label" for="inlineRadio1">1 (terrible) </label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2">
+        <label class="form-check-label" for="inlineRadio2">2</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option3">
+        <label class="form-check-label" for="inlineRadio1">3</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option4">
+        <label class="form-check-label" for="inlineRadio2">4</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option5">
+        <label class="form-check-label" for="inlineRadio2">5 (excellent)</label>
+      </div>
+      <button type="button" type="submit" class="btn btn-success" id="next_id">Next</button>
+    </div>
+  </div>
+  <div class="container-fluid text-center">
+    <button type="button" type="submit" class="btn btn-success" id="submit_rating">Submit</button>
+  </div>
+
+
+    <div class="accordion" id="feedbackPromptDisplay">
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+      <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdditional" aria-expanded="false" aria-controls="collapseAdditional">
+          Additional Feedback
+      </button>
+      </h2>
+      <div id="collapseAdditional" class="accordion-collapse collapse" data-bs-parent="#feedbackPromptDisplay">
+        <div class="accordion-body">
+            <p>Check whichever additional feedback you feel is necessary. Leaving blank implies that aspect of the summary/context is fine.</p>
+
+            <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="false_positive">
+            <label class="form-check-label" for="flexCheckDefault">
+                ID is a false positive
+            </label>
+            </div>
+
+            <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="hallucinations">
+            <label class="form-check-label" for="flexCheckDefault">
+                Contains hallucinations (fake references, made up facts etc)
+            </label>
+            </div>
+
+            <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="inaccurate">
+            <label class="form-check-label" for="flexCheckChecked">
+                Contains Inaccurate text (statements not supported by the context)
+            </label>
+            </div>
+
+            <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="contradictions">
+            <label class="form-check-label" for="flexCheckDefault">
+                Contains contradictions
+            </label>
+            </div>
+
+            <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="specificity">
+            <label class="form-check-label" for="flexCheckChecked">
+                Overly specific (e.g. has very specific experimental method information)
+            </label>
+            </div>
+
+            <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="bad_length">
+            <label class="form-check-label" for="flexCheckDefault">
+                Bad length (summary is too short/long)
+            </label>
+            </div>
+
+            <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="mentions_ai">
+            <label class="form-check-label" for="flexCheckChecked">
+                Mentions being an AI
+            </label>
+            </div>
+
+            <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="short_context">
+            <label class="form-check-label" for="flexCheckChecked">
+                Context too short
+            </label>
+            </div>
+            <div class="mb-3">
+              <label for="freeFeedback" class="form-label">Free feedback</label>
+              <textarea type="text" class="form-control" id="freeFeedback" rows="3"></textarea>
+            </div>
+        </div>
+      </div>
+    </div>
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+          Prompts
+        </button>
+      </h2>
+      <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#feedbackPromptDisplay">
+        <div class="accordion-body">
+          <h4>Initial Prompt</h4>
+          <p>You are an experienced academic and always provide references for each sentence you write. You are a researcher who always answers in a factual and unbiased way. Provide at least one reference per sentence you produce.As an experienced academic who ALWAYS provides references for each sentence you write, produce a summary from the text below, focusing on {{rna_id}} and using the references for each sentence. The reference for each sentence in the text is given at the end of the sentence, enclosed by []. You MUST provide at least one reference per sentence you produce. Use only the information in the context given below. Use 200 words or less.</p>
+          <p>
+          {{context}}
+          <br>
+          Summary:
+          </p>
+          <br>
+          <h4>Revision prompt (if necessary)</h4>
+          <p>Given the summary, and its original context, rewrite the summary to include references at the end of each sentence. References are provided in the original context, enclosed in [].</p>
+          <p>Summary: {{summary}}</p>
+          <br>
+          <p>Original context:
+            <br>
+          {{context}}
+          <br>
+          Revised Summary:
+          </p>
+
+        </div>
+      </div>
+    </div>
+
+    </div>
+  </div>
+
+<script type="text/javascript">
+  var prev_button = document.getElementById("prev_id")
+  var next_button = document.getElementById("next_id")
+  var submit_button = document.getElementById("submit_rating")
+
+  prev_button.onclick = function() {
+      // Easiest way is to pop 2 from the seen IDs and let the loader handle the rest
+      console.log("This is the string we get:")
+      console.log(getCookie("seen_ids"));
+      console.log("That was the string we got")
+      let seen_ids = getCookie("seen_ids").replace('"', '').split(" ");
+      console.log(seen_ids);
+      seen_ids.pop(); // this ID
+      console.log(seen_ids)
+      seen_ids.pop(); // the previous ID
+      console.log(seen_ids)
+      console.log(seen_ids.join(','));
+      setCookie("seen_ids", seen_ids.join(' '), 999);
+      // reload window to have an effect
+      window.location.href = "/single"
+  }
+
+  next_button.onclick = function() {
+      // Id increment handles python side, so we should be able to just reload the window?
+      window.location.href = "/single"
+
+    }
+
+  submit_button.onclick = function() {
+    var feedback = get_extra_feedback();
+  }
+
+
+
+  function get_extra_feedback() {
+    var additional_feedback = new Object()
+    additional_feedback.false_positive = document.getElementById("false_positive").checked;
+    document.getElementById("false_positive").checked = false;
+
+    additional_feedback.contains_hallucinations = document.getElementById("hallucinations").checked;
+    document.getElementById("hallucinations").checked = false;
+
+    additional_feedback.inaccurate_text = document.getElementById("inaccurate").checked;
+    document.getElementById("inaccurate").checked = false;
+
+    additional_feedback.contradictory = document.getElementById("contradictions").checked;
+    document.getElementById("contradictions").checked = false;
+
+    additional_feedback.over_specific = document.getElementById("specificity").checked;
+    document.getElementById("specificity").checked = false;
+
+    additional_feedback.bad_length = document.getElementById("bad_length").checked;
+    document.getElementById("bad_length").checked = false;
+
+    additional_feedback.mentions_ai = document.getElementById("mentions_ai").checked;
+    document.getElementById("mentions_ai").checked = false;
+
+    additional_feedback.short_context = document.getElementById("short_context").checked;
+    document.getElementById("short_context").checked = false;
+
+    additional_feedback.freeText = document.getElementById("freeFeedback").value;
+    document.getElementById("freeFeedback").value = "";
+
+    return additional_feedback;
+
+  }
+
+
+  function setCookie(cname, cvalue, exdays) {
+  const d = new Date();
+  d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+  let expires = "expires="+d.toUTCString();
+  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+}
+
+function getCookie(cname) {
+  let name = cname + "=";
+  let decodedCookie = decodeURIComponent(document.cookie);
+  console.log(decodedCookie);
+  let ca = decodedCookie.split(';');
+  for(let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) == ' ') {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) == 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return "";
+}
+
+  </script>
+
+{% endblock %}
