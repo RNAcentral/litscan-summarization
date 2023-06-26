@@ -8,7 +8,7 @@ Output: JSON file containing sentences selected for each ID
 
 import logging
 
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.ERROR)
 import numpy as np
 import polars as pl
 from sentence_selection.topic_modelling import run_topic_modelling
@@ -70,7 +70,6 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         sentences[c[0]] for c in communities
     ]  ## See if the noise community is in there...
     selected_pmcids = [pmcids[c[0]] for c in communities]
-    print(sum(get_token_length(selected_sentences)))
     ## If there aren't too many clusters, this will be true, and we can select from them until we run out of tokens
     if sum(get_token_length(selected_sentences)) <= token_limit:
         logging.info(f"Sampling communities for {ent_id}, until token limit")

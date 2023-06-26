@@ -71,8 +71,8 @@ def cluster_sentences(id_sentences, model, min_cluster_size=15, min_samples=5):
     Use minimum of 22 as the least that can undergo the UMAP embedding
     """
     if len(id_sentences) <= 22:
-        print(len(id_sentences))
-        print("Returning single cluster...")
+        # print(len(id_sentences))
+        # print("Returning single cluster...")
         selection = {
             "sentence_labels": list(range(len(id_sentences))),
             "topics": ["None,None,None"] * len(id_sentences),
@@ -84,7 +84,7 @@ def cluster_sentences(id_sentences, model, min_cluster_size=15, min_samples=5):
     embeddings = (
         model.encode(
             id_sentences,
-            show_progress_bar=True,
+            show_progress_bar=False,
             convert_to_tensor=True,
             normalize_embeddings=True,
         )

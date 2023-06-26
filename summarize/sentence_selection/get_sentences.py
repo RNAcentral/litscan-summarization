@@ -7,19 +7,28 @@ from sentence_selection.aliases import resolve_aliases
 from sentence_selection.pull_sentences import pull_data_from_db
 from sentence_selection.sentence_selector import iterative_sentence_selector
 from sentence_selection.utils import get_token_length
+from tqdm import tqdm
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 from sentence_transformers import SentenceTransformer
 
 
+def w_pbar(pbar, func):
+    def foo(*args, **kwargs):
+        pbar.update(1)
+        return func(*args, **kwargs)
+
+    return foo
+
+
 def sample_sentences(
     sentences: pl.DataFrame, model: SentenceTransformer, limit: ty.Optional[int] = 3072
 ):
-
+    pbar = tqdm(total=len(sentences), desc="Selecting Sentences...", colour="green")
     df = sentences.with_columns(
         pl.struct(["sentence", "primary_id", "pmcid"])
-        .apply(lambda x: iterative_sentence_selector(x, model, limit))
+        .apply(w_pbar(pbar, lambda x: iterative_sentence_selector(x, model, limit)))
         .alias("result")
     ).unnest("result")
     return df
