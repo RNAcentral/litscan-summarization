@@ -74,5 +74,20 @@ services:
     ports:
       - 7860:7860
 
+
+  evaluator:
+    platform: linux/amd64
+    build:
+      context: ./evaluate
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command: gunicorn --bind 0.0.0.0:5000 --timeout 600 manage:app
+    ports:
+      - 5000:5000
+    depends_on:
+      - database
+    restart: always
+
 volumes:
   postgres_data:
