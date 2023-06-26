@@ -145,16 +145,8 @@ def search_db(ent_id, conn_str=None):
             truthful,
             problematic_summary,
             veracity_result,
-        ) = (
-            "Not Found",
-            "Not Found",
-            0,
-            0,
-            0,
-            None,
-            None,
-            "Not Found",
-        )
+            selection_method,
+        ) = ("Not Found", "Not Found", 0, 0, 0, None, None, "Not Found", "Not Found")
         prompt_1 = "Not Found"
         prompt_2 = "Not Found"
         prompt_3 = "Not Found"
@@ -171,6 +163,7 @@ def search_db(ent_id, conn_str=None):
             truthful,
             problematic_summary,
             veracity_result,
+            selection_method,
         ) = res
         first_ref = pmcid_pattern.findall(context)[0]
         prompt_1 = context_padding.format(
@@ -201,6 +194,7 @@ def search_db(ent_id, conn_str=None):
         prompt_3,
         prompt_4,
         veracity_result,
+        selection_method,
     )
 
 
@@ -231,8 +225,10 @@ with visualisation:
         tokens = gr.Number(label="Tokens", interactive=False)
         cost = gr.Number(label="Cost", interactive=False)
         attempts = gr.Number(label="Attempts", interactive=False)
-        problematic = gr.Checkbox(label="Problematic", interactive=False)
-        truthful = gr.Checkbox(label="Truthful", interactive=False)
+        with gr.Column():
+            problematic = gr.Checkbox(label="Problematic", interactive=False)
+            truthful = gr.Checkbox(label="Truthful", interactive=False)
+            selection_method = gr.Textbox(label="Selection Method", interactive=False)
 
     with gr.Row():
         initial_prompt = gr.Textbox(label="Initial Prompt")
@@ -259,6 +255,7 @@ with visualisation:
             veracity_prompt,
             veracity_rescue_prompt,
             veracity_output,
+            selection_method,
         ],
     )
     search_button.click(
@@ -277,6 +274,7 @@ with visualisation:
             veracity_prompt,
             veracity_rescue_prompt,
             veracity_output,
+            selection_method,
         ],
     )
 
