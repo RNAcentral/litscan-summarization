@@ -12,7 +12,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     cost float,
     total_tokens integer,
     attempts integer,
-    truthful boolean
+    truthful boolean,
+    consistency_check_result text,
+    selection_method text
   );
   ALTER TABLE public.litsumm_summaries OWNER TO $LITSCAN_USER;
   COMMIT;

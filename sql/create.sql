@@ -7,4 +7,6 @@ cost float,
 total_tokens int,
 attempt int,
 truthful boolean
+consistency_check_result text,
+selection_method text,
 );
