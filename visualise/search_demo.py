@@ -124,6 +124,8 @@ def select_examples(conn_str):
     cur = conn.cursor()
     cur.execute("select rna_id from litsumm_summaries")
     res = [a[0] for a in cur.fetchall()]
+    if len(res) == 0:
+        return []
     ids = choices(res, k=10)
     return ids
 
