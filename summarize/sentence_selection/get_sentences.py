@@ -62,6 +62,22 @@ def for_summary(
     sentence_df = resolve_aliases(sentence_df)
 
     model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
-    sample_df = sample_sentences(sentence_df, model, limit)
 
-    return sample_df.select(["primary_id", "selected_pmcids", "selected_sentences"])
+    ## WIP: Dealing with huge numbers of sentences is hard
+    # if Path("below_limit.json").exists():
+    #     tiny_df = pl.read_json("below_limit.json")
+    # else:
+    #     tiny_df = sample_sentences(sentence_df.filter(pl.col("total").lt(limit)), model, limit)
+    #     tiny_df.write_json("below_limit.json")
+
+    # print(sentence_df.filter(pl.col("total").is_between(limit, 3*limit)))
+
+    # intermediate_df = sample_sentences(sentence_df.filter(pl.col("total").is_between(3*limit, 6*limit)), model, limit)
+    # intermediate_df.write_json("intermediate_pt2.json")
+    # print(intermediate_df)
+    # exit()
+    sample_df = sample_sentences(sentence_df.reverse(), model, limit)
+
+    return sample_df.select(
+        ["primary_id", "selected_pmcids", "selected_sentences", "method"]
+    )

@@ -28,6 +28,7 @@ from summaries import generate_summary
 @click.option("--dry_run", default=False, is_flag=True)
 @click.option("--model_name", default="chatGPT")
 @click.option("--model_path", default=None)
+@click.option("--min_sentences", default=0)
 def main(
     context_output_dir,
     summary_output_dir,
@@ -46,6 +47,7 @@ def main(
     write_gdocs,
     model_name,
     model_path,
+    min_sentences,
 ):
     context_output_dir = Path(context_output_dir)
     context_output_dir.mkdir(parents=True, exist_ok=True)
@@ -78,7 +80,11 @@ def main(
         print("Not running by request, exiting early")
         return
     ids_done = 0
-    for idx, row in enumerate(sentence_df.iter_rows(named=True)):
+    for idx, row in enumerate(
+        sentence_df.filter(
+            pl.col("selected_sentences").list.lengths().gt(min_sentences)
+        ).iter_rows(named=True)
+    ):
         if start_idx > idx:
             continue
         context = build_context(row["selected_sentences"], row["selected_pmcids"])
@@ -124,6 +130,7 @@ def main(
                 "problem_summary": problem_summary,
                 "truthful": truthful,
                 "consistency_check_result": veracity_check_result,
+                "selection_method": row["method"],
             }
         )
         if generation_limit < 0:
@@ -138,7 +145,7 @@ def main(
     if write_json:
         ## Write the results to parquet
         df = pl.DataFrame(data_for_db)
-        df.write_ndjson("summary_data.parquet")
+        df.write_ndjson("summary_data.ndjson")
 
     if write_gdocs:
         ## Create the googledocs
