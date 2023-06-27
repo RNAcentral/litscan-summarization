@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "visualise"
+version = "0.1.0"
+description = ""
+authors = ["Andrew Green <agreen@ebi.ac.uk>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+gradio = "^3.35.2"
+psycopg2-binary = "^2.9.6"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

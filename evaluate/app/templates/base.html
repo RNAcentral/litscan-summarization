@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        {% block head %}
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        {% block styles %}
+            <!-- Bootstrap CSS -->
+            {{ bootstrap.load_css() }}
+        {% endblock %}
+
+        <title>{% block title %}LitScan chatGPT summaries{% endblock %}</title>
+
+        {% endblock %}
+    </head>
+    <body>
+        <!-- Your page content -->
+        {% block content %}{% endblock %}
+
+        {% block scripts %}
+            <!-- Optional JavaScript -->
+            {{ bootstrap.load_js() }}
+            <script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
+            <script type="text/javascript">
+                function send_feedback(feedback) {
+                    $.ajax({
+                            type: 'post',
+                            url: '{{url_for("save_single_feedback")}}',
+                            data: JSON.stringify(feedback),
+                            contentType: "application/json",
+                            dataType: 'json',
+                            complete: function(result){
+                                console.log("Submitted feedback ok");
+                                console.log(result);
+                                window.location.href = result.responseText;
+                            }
+                        });
+                    }
+            </script>
+
+            <script type="text/javascript">
+                function reset_seen_list(){
+                    $.get({url:'{{url_for("reset_seen")}}'},
+                    function(result){
+                        console.log("List of seend IDs reset");
+                        window.location.href = result;
+                    });
+                }
+            </script>
+        {% endblock %}
+    </body>
+</html>

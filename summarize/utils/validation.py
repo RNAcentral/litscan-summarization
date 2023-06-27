@@ -8,6 +8,8 @@ def contains_adequate_references(summary: str) -> bool:
     """
     Checks for a ratio of sentence to reference which is good enough. It should ideally be 1:1 but
     sometimes it's ok for it not to be.
+
+    Make this per sentence, rather than average
     """
     num_sentences = len(summary.split(". "))  # Should be ok?
     ## The following will find references no matter where they are, including if the model dumped them all in one big block
@@ -51,7 +53,9 @@ def references_end_sentences(summary: str) -> bool:
     at the end of each sentence.
     """
     ## this regex allows the model to put more than one reference in a single pair of square brackets
-    references_ending_sentences = len(re.findall(r"(\[[PMC0-9,\s]*\].)", summary))
+    references_ending_sentences = len(
+        re.findall(r"\[(PMC\d+(?:,\s*PMC\d+)*)\]\.", summary)
+    )
     num_sentences = len(summary.split(". "))  # Should be ok?
     ## Again, bit arbitrary, but as long as half the references are occuring at the end of sentences
     ## the summary is probably ok.

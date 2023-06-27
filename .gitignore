@@ -3,9 +3,14 @@
 .idea
 credentials.json
 token.json
+summarize/summaries/*
+summarize/contexts/*
+summarize/veracity_checks/*
 summaries/*
 contexts/*
-*.json
+dumps/*
+*.json*
 *.png
 .DS_Store
 .python-version
+100/*

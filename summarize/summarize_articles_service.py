@@ -82,7 +82,14 @@ def run_summary_job(job_ids, conn_str):
     data_for_db = []
     for row in sentence_df.iter_rows(named=True):
         context = build_context(row["selected_sentences"], row["selected_pmcids"])
-        summary, cost, total_tokens, attempts, truthful = generate_summary(
+        (
+            summary,
+            cost,
+            total_tokens,
+            attempts,
+            truthful,
+            veracity_check_result,
+        ) = generate_summary(
             os.getenv("MODEL_NAME", "chatGPT"),
             row["primary_id"],
             context,
@@ -101,6 +108,8 @@ def run_summary_job(job_ids, conn_str):
                 "total_tokens": total_tokens,
                 "attempts": attempts,
                 "truthful": truthful,
+                "consistency_check_result": veracity_check_result,
+                "selection_method": row["method"],
             }
         )
     logging.info("Inserting all summaries into database...")

@@ -6,11 +6,12 @@ select t.primary_id,
         from
         -- sub query to select only the first hit for each article
         (
-            select lsb.result_id, max(lsdb.primary_id) as primary_id, (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
+            select lsb.result_id, max(lsj.display_id) as primary_id, (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
                             (array_agg( DISTINCT lsr.job_id))[1] as job_id,
                             (array_agg(lsb.sentence))[1] as sentence
             from embassy_rw.litscan_body_sentence lsb
             join embassy_rw.litscan_result lsr on lsr.id = lsb.result_id
+            join embassy_rw.litscan_job lsj on lsj.job_id = lsr.job_id
             join embassy_rw.litscan_database lsdb on lsdb.job_id = lsr.job_id
             join embassy_rw.litscan_article lsa on lsa.pmcid = lsr.pmcid
             where lsdb.name in ('pombase', 'hgnc', 'wormbase', 'mirbase', 'snodb', 'tair', 'sgd', 'pdbe', 'genecards', 'gtrnadb', 'mirgenedb', 'refseq', 'rfam', 'zfin' )

@@ -8,7 +8,7 @@ Output: JSON file containing sentences selected for each ID
 
 import logging
 
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.ERROR)
 import numpy as np
 import polars as pl
 from sentence_selection.topic_modelling import run_topic_modelling
@@ -43,6 +43,7 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         return {
             "selected_sentences": sentences,
             "selected_pmcids": pmcids,
+            "method": "all",
         }
 
     ## If we have too many, use topic modelling
@@ -53,7 +54,9 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         logging.info(
             f"No communities for {ent_id}, re-running with smaller minimum cluster size"
         )
-        row, communities = run_topic_modelling(row, model, min_cluster_size=3)
+        row, communities = run_topic_modelling(
+            row, model, min_cluster_size=3, min_samples=1
+        )
     sentences = np.array(sentences)
     pmcids = np.array(pmcids)
 
@@ -67,7 +70,6 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         sentences[c[0]] for c in communities
     ]  ## See if the noise community is in there...
     selected_pmcids = [pmcids[c[0]] for c in communities]
-    print(sum(get_token_length(selected_sentences)))
     ## If there aren't too many clusters, this will be true, and we can select from them until we run out of tokens
     if sum(get_token_length(selected_sentences)) <= token_limit:
         logging.info(f"Sampling communities for {ent_id}, until token limit")
@@ -78,7 +80,9 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         while sum(get_token_length(selected_sentences)) < token_limit:
             for c in communities:
                 if len(c) > 0:  ## If there are sentences left in the community
-                    selected_sentences.append(sentences[c.pop(0)])
+                    idx = c.pop(0)
+                    selected_sentences.append(sentences[idx])
+                    selected_pmcids.append(pmcids[idx])
             if all([len(c) == 0 for c in communities]):
                 break  ## This would mean taking all the exemplars still doesn't hit the token limit
 
@@ -86,10 +90,12 @@ def iterative_sentence_selector(row, model, token_limit=3072):
             logging.info(f"Too many sentences for {ent_id}, removing last sentence")
             ## pop the last one, since by definition we went over by including it
             selected_sentences.pop()
+            selected_pmcids.pop()
 
         return {
             "selected_sentences": selected_sentences,
             "selected_pmcids": selected_pmcids,
+            "method": "round-robin",
         }
 
     logging.info(f"{ent_id} has too many clusters to use round-robin selection")
@@ -152,8 +158,12 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         total_tokens = sum(get_token_length(selected_sentences))
         if total_tokens >= token_limit:
             selected_sentences.pop()
+            selected_pmcids.pop()
+            selected_idxs.pop()
+            selected_embeddings.pop()
             break
     return {
         "selected_sentences": selected_sentences,
         "selected_pmcids": selected_pmcids,
+        "method": "greedy:",
     }

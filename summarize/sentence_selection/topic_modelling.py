@@ -63,19 +63,39 @@ def cluster_sentences(id_sentences, model, min_cluster_size=15, min_samples=5):
     if isinstance(id_sentences, pl.Series):
         id_sentences = id_sentences.to_list()
 
+    """
+    Sometimes, an ID has very few sentences, but those sentences have lots of words.
+    This tricks us into doing the topic modelling, but it will fail because of the tiny matrix dimensions.
+    In that case, we return a single cluster with all the sentences.
+    This is a bit heuristic, and will need some tuning.
+    Use minimum of 22 as the least that can undergo the UMAP embedding
+    """
+    if len(id_sentences) <= 22:
+        # print(len(id_sentences))
+        # print("Returning single cluster...")
+        selection = {
+            "sentence_labels": list(range(len(id_sentences))),
+            "topics": ["None,None,None"] * len(id_sentences),
+            "umap_embeddings": np.zeros((len(id_sentences), 20)),
+            "exemplar_indices": [list(range(len(id_sentences)))],
+        }
+        return selection
+
     embeddings = (
         model.encode(
             id_sentences,
-            show_progress_bar=True,
+            show_progress_bar=False,
             convert_to_tensor=True,
             normalize_embeddings=True,
         )
         .cpu()
         .numpy()
     )
-    k = min(15, len(id_sentences) - 1)
+    k = min(15, len(id_sentences) // 4)
+    N = 20
+
     umap_embeddings = umap.UMAP(
-        n_neighbors=k, n_components=20, metric="cosine"
+        n_neighbors=k, n_components=N, metric="cosine"
     ).fit_transform(embeddings)
     cluster = hdbscan.HDBSCAN(
         min_cluster_size=min_cluster_size,
@@ -85,12 +105,13 @@ def cluster_sentences(id_sentences, model, min_cluster_size=15, min_samples=5):
     ).fit(umap_embeddings)
     topics = get_topics(id_sentences, cluster.labels_)
     exemplar_indices = get_exemplars(cluster, umap_embeddings)
-    return {
+    selection = {
         "sentence_labels": cluster.labels_.tolist(),
         "topics": topics,
         "umap_embeddings": umap_embeddings,
         "exemplar_indices": exemplar_indices,
     }
+    return selection
 
 
 def get_topics(sentences, labels):

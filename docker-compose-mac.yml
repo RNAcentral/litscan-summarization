@@ -60,5 +60,34 @@ services:
       - database
     restart: always
 
+  vizualiser:
+    platform: linux/arm64/v8
+    build:
+      context: ./visualise
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command: python search_demo.py
+    depends_on:
+      - database
+    restart: always
+    ports:
+      - 7860:7860
+
+
+  evaluator:
+    platform: linux/arm64/v8
+    build:
+      context: ./evaluate
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command: gunicorn --bind 0.0.0.0:5000 --timeout 600 manage:app
+    ports:
+      - 5000:5000
+    depends_on:
+      - database
+    restart: always
+
 volumes:
   postgres_data:

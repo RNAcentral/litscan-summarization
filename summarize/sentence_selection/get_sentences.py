@@ -7,19 +7,28 @@ from sentence_selection.aliases import resolve_aliases
 from sentence_selection.pull_sentences import pull_data_from_db
 from sentence_selection.sentence_selector import iterative_sentence_selector
 from sentence_selection.utils import get_token_length
+from tqdm import tqdm
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 from sentence_transformers import SentenceTransformer
 
 
+def w_pbar(pbar, func):
+    def foo(*args, **kwargs):
+        pbar.update(1)
+        return func(*args, **kwargs)
+
+    return foo
+
+
 def sample_sentences(
     sentences: pl.DataFrame, model: SentenceTransformer, limit: ty.Optional[int] = 3072
 ):
-
+    pbar = tqdm(total=len(sentences), desc="Selecting Sentences...", colour="green")
     df = sentences.with_columns(
         pl.struct(["sentence", "primary_id", "pmcid"])
-        .apply(lambda x: iterative_sentence_selector(x, model, limit))
+        .apply(w_pbar(pbar, lambda x: iterative_sentence_selector(x, model, limit)))
         .alias("result")
     ).unnest("result")
     return df
@@ -62,6 +71,22 @@ def for_summary(
     sentence_df = resolve_aliases(sentence_df)
 
     model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
-    sample_df = sample_sentences(sentence_df, model, limit)
 
-    return sample_df.select(["primary_id", "selected_pmcids", "selected_sentences"])
+    ## WIP: Dealing with huge numbers of sentences is hard
+    # if Path("below_limit.json").exists():
+    #     tiny_df = pl.read_json("below_limit.json")
+    # else:
+    #     tiny_df = sample_sentences(sentence_df.filter(pl.col("total").lt(limit)), model, limit)
+    #     tiny_df.write_json("below_limit.json")
+
+    # print(sentence_df.filter(pl.col("total").is_between(limit, 3*limit)))
+
+    # intermediate_df = sample_sentences(sentence_df.filter(pl.col("total").is_between(3*limit, 6*limit)), model, limit)
+    # intermediate_df.write_json("intermediate_pt2.json")
+    # print(intermediate_df)
+    # exit()
+    sample_df = sample_sentences(sentence_df.reverse(), model, limit)
+
+    return sample_df.select(
+        ["primary_id", "selected_pmcids", "selected_sentences", "method"]
+    )
