@@ -100,8 +100,10 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         sentences[c[0]] for c in communities
     ]  ## See if the noise community is in there...
     selected_pmcids = [pmcids[c[0]] for c in communities]
+    selected_idxs = [c[0] for c in communities]
+    num_clusters = len(communities)
     ## If there aren't too many clusters, this will be true, and we can select from them until we run out of tokens
-    if sum(get_token_length(selected_sentences)) <= token_limit:
+    if sum(get_token_length(selected_sentences)) < token_limit:
         logging.info(f"Sampling communities for {ent_id}, until token limit")
         ## First, pop all the first sentences 'cause they're already in the list
         [c.pop(0) for c in communities]
@@ -109,7 +111,10 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         ## round-robin grabbing of sentences until we hit the limit
         while sum(get_token_length(selected_sentences)) < token_limit:
             for c in communities:
-                if len(c) > 0:  ## If there are sentences left in the community
+                if (
+                    len(c) > 0
+                    and sum(get_token_length(selected_sentences)) < token_limit
+                ):  ## If there are sentences left in the community
                     idx = c.pop(0)
                     selected_sentences.append(sentences[idx])
                     selected_pmcids.append(pmcids[idx])
@@ -122,6 +127,25 @@ def iterative_sentence_selector(row, model, token_limit=3072):
             selected_sentences.pop()
             selected_pmcids.pop()
 
+        ## At this point, check how many sentences we have. If < 5 we need to go look at some cluster members outside the exemplars
+        if len(selected_sentences) < 5 and len(sentences) - len(selected_sentences) > 0:
+            print(len(sentences), len(selected_sentences))
+            labels = row.get_column("sentence_labels").to_numpy()
+            for c_label in range(num_clusters):
+                if c_label not in labels:
+                    continue
+                c_idxs = np.where(labels == c_label)[0]
+                print(c_idxs)
+                for idx in c_idxs:
+                    if idx not in selected_idxs:
+                        if sum(get_token_length(selected_sentences)) < token_limit:
+                            selected_sentences.append(sentences[idx])
+                            selected_pmcids.append(pmcids[idx])
+                        else:
+                            break
+                if sum(get_token_length(selected_sentences)) >= token_limit:
+                    break
+
         return {
             "selected_sentences": selected_sentences,
             "selected_pmcids": selected_pmcids,
@@ -132,6 +156,9 @@ def iterative_sentence_selector(row, model, token_limit=3072):
     logging.info(
         f"Using greedy selection algorithm for {ent_id}. Only works on cluster centres."
     )
+    logging.info(f"Number of clusters: {len(communities)}")
+    logging.info(f"Number of sentences: {len(sentences)}")
+    print(sentences[communities[0][1]])
 
     ## If we're here, there are still too many tokens in the selection. Now we need to optimize for diversity and token count
     ## Use a greedy algorithm on the cluster centres, start with the first because it should be the largest cluster
