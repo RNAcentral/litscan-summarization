@@ -63,24 +63,6 @@ def cluster_sentences(id_sentences, model, min_cluster_size=15, min_samples=5):
     if isinstance(id_sentences, pl.Series):
         id_sentences = id_sentences.to_list()
 
-    """
-    Sometimes, an ID has very few sentences, but those sentences have lots of words.
-    This tricks us into doing the topic modelling, but it will fail because of the tiny matrix dimensions.
-    In that case, we return a single cluster with all the sentences.
-    This is a bit heuristic, and will need some tuning.
-    Use minimum of 22 as the least that can undergo the UMAP embedding
-    """
-    if len(id_sentences) <= 22:
-        # print(len(id_sentences))
-        # print("Returning single cluster...")
-        selection = {
-            "sentence_labels": list(range(len(id_sentences))),
-            "topics": ["None,None,None"] * len(id_sentences),
-            "umap_embeddings": np.zeros((len(id_sentences), 20)),
-            "exemplar_indices": [list(range(len(id_sentences)))],
-        }
-        return selection
-
     embeddings = (
         model.encode(
             id_sentences,

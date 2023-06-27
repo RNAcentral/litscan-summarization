@@ -46,6 +46,36 @@ def iterative_sentence_selector(row, model, token_limit=3072):
             "method": "all",
         }
 
+    ## Grey area - if we have too many tokens, but not enough to use topic modelling
+    ## Minimum that can safely go in is 22 sentences. Below that, sort by sentence length ascending then take shortest N that fill context
+    if len(sentences) < 22:
+        logging.info(
+            f"Too many tokens for {ent_id}, but not enough for topic modelling"
+        )
+        logging.info(f"Using shortest sentences for {ent_id}")
+        sentences = np.array(sentences)
+        pmcids = np.array(pmcids)
+        lengths = np.array([len(s) for s in sentences])
+        sorted_idxs = np.argsort(lengths)
+        selected_sentences = []
+        selected_pmcids = []
+        selected_idxs = []
+        for idx in sorted_idxs:
+            print(idx)
+            selected_sentences.append(sentences[idx])
+            selected_pmcids.append(pmcids[idx])
+            selected_idxs.append(idx)
+            if sum(get_token_length(selected_sentences)) >= token_limit:
+                selected_sentences.pop()
+                selected_pmcids.pop()
+                selected_idxs.pop()
+                break
+        return {
+            "selected_sentences": selected_sentences,
+            "selected_pmcids": selected_pmcids,
+            "method": "shortest",
+        }
+
     ## If we have too many, use topic modelling
     logging.info(f"Too many tokens for {ent_id}, using topic modelling")
     row, communities = run_topic_modelling(row, model)
