@@ -121,21 +121,14 @@ def iterative_sentence_selector(row, model, token_limit=3072):
             if all([len(c) == 0 for c in communities]):
                 break  ## This would mean taking all the exemplars still doesn't hit the token limit
 
-        if sum(get_token_length(selected_sentences)) > token_limit:
-            logging.info(f"Too many sentences for {ent_id}, removing last sentence")
-            ## pop the last one, since by definition we went over by including it
-            selected_sentences.pop()
-            selected_pmcids.pop()
-
-        ## At this point, check how many sentences we have. If < 5 we need to go look at some cluster members outside the exemplars
-        if len(selected_sentences) < 5 and len(sentences) - len(selected_sentences) > 0:
-            print(len(sentences), len(selected_sentences))
+        ## At this point, check how many tokens we have. If < limit we need to go look at some cluster members outside the exemplars
+        if sum(get_token_length(selected_sentences)) < token_limit:
+            ## This branch is active when we exhaust the exemplars before the context limit
             labels = row.get_column("sentence_labels").to_numpy()
             for c_label in range(num_clusters):
                 if c_label not in labels:
                     continue
                 c_idxs = np.where(labels == c_label)[0]
-                print(c_idxs)
                 for idx in c_idxs:
                     if idx not in selected_idxs:
                         if sum(get_token_length(selected_sentences)) < token_limit:
@@ -145,6 +138,12 @@ def iterative_sentence_selector(row, model, token_limit=3072):
                             break
                 if sum(get_token_length(selected_sentences)) >= token_limit:
                     break
+
+        if sum(get_token_length(selected_sentences)) > token_limit:
+            logging.info(f"Too many sentences for {ent_id}, removing last sentence")
+            ## pop the last one, since by definition we went over by including it
+            selected_sentences.pop()
+            selected_pmcids.pop()
 
         return {
             "selected_sentences": selected_sentences,
