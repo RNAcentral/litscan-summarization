@@ -193,7 +193,7 @@ def iterative_sentence_selector(row, model, token_limit=3072):
                     .numpy()
                     .tolist()
                 )
-                cost.append(distances[-1] * lengths[e_idx])
+                cost.append(distances[-1])
                 idx_to_copy.append(idx)
                 community_idx.append(c_idx)
         ## Get the index of the minimum, use to grab the right sentence and community
@@ -212,7 +212,7 @@ def iterative_sentence_selector(row, model, token_limit=3072):
 
         ## Check we aren't about to run out of tokens
         total_tokens = sum(get_token_length(selected_sentences))
-        if total_tokens >= token_limit:
+        if total_tokens > token_limit:
             selected_sentences.pop()
             selected_pmcids.pop()
             selected_idxs.pop()
@@ -221,5 +221,5 @@ def iterative_sentence_selector(row, model, token_limit=3072):
     return {
         "selected_sentences": selected_sentences,
         "selected_pmcids": selected_pmcids,
-        "method": "greedy:",
+        "method": "greedy",
     }
