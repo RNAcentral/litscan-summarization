@@ -2,6 +2,9 @@
 {% extends "base.html" %}
 {% block title %}Is this summary for {{rna_id}} good?{% endblock %}
 {% block content %}
+<div class="container-fluid text-wrap">
+  <h1 class="text-center">{{ rna_id }}</h1>
+</div>
 <div class="accordion" id="contextDisplay">
 <div class="accordion-item">
   <h2 class="accordion-header">
@@ -18,7 +21,6 @@
 </div>
 
   <div class="container-fluid text-wrap">
-    <h1 class="text-center">{{ rna_id }}</h1>
     <p class="text-start">{{ summary }}</p>
   </div>
 
