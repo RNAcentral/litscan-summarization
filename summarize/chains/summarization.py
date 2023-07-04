@@ -153,8 +153,8 @@ def get_veracity_revision_prompt() -> ChatPromptTemplate:
     veracity_revision_context = (
         "{checked_assertions}\n\n"
         "In light of the above checks about its veracity, refine the summary below to ensure all statements are true.\n"
-        "Ensure that you retain references in their original format, which should look like [{first_ref}].\n"
         "Original summary: \n{summary}\n"
+        "Do not change the reference style used, but you may add or remove references.\n"
         "Revised summary:\n"
     )
     human_prompt = HumanMessagePromptTemplate.from_template(veracity_revision_context)
