@@ -87,6 +87,7 @@ def run_summary_job(job_ids, conn_str):
             cost,
             total_tokens,
             attempts,
+            problem_summary,
             truthful,
             veracity_check_result,
         ) = generate_summary(
@@ -107,6 +108,7 @@ def run_summary_job(job_ids, conn_str):
                 "cost": cost,
                 "total_tokens": total_tokens,
                 "attempts": attempts,
+                "problem_summary": problem_summary,
                 "truthful": truthful,
                 "consistency_check_result": veracity_check_result,
                 "selection_method": row["method"],
