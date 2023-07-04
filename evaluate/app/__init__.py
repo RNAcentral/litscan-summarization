@@ -76,8 +76,6 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 @app.route("/")
 def intro():
     resp = make_response(render_template("intro.html"))
-    user_id = uuid.uuid4()
-    resp.set_cookie("user", str(user_id))
     return resp
 
 
@@ -101,7 +99,7 @@ def present_single_summary():
     cur = conn.cursor()
 
     ## Get the IDs this browser has seen
-    if request.cookies.get("seen_ids") == "":
+    if request.cookies.get("seen_ids") == "" or request.cookies.get("seen_ids") is None:
         seen_ids = []
     else:
         seen_ids = [int(i) for i in request.cookies.get("seen_ids").split(" ")]

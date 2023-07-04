@@ -16,7 +16,7 @@ from utils.database import insert_rna_data
 @click.option("--conn_str", envvar="PGDATABASE")
 @click.option("--summary_data", default="summary_data.json", type=click.Path())
 def main(conn_str, summary_data):
-    summary_data = pl.read_json(summary_data)
+    summary_data = pl.read_ndjson(summary_data)
     print(summary_data)
     insert_rna_data(summary_data.to_dicts(), conn_str)
 

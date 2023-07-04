@@ -2,6 +2,9 @@
 {% extends "base.html" %}
 {% block title %}Is this summary for {{rna_id}} good?{% endblock %}
 {% block content %}
+<div class="container-fluid text-wrap">
+  <h1 class="text-center">{{ rna_id }}</h1>
+</div>
 <div class="accordion" id="contextDisplay">
 <div class="accordion-item">
   <h2 class="accordion-header">
@@ -18,33 +21,32 @@
 </div>
 
   <div class="container-fluid text-wrap">
-    <h1 class="text-center">{{ rna_id }}</h1>
     <p class="text-start">{{ summary }}</p>
   </div>
 
 
   <div class="container-fluid text-center">
 
-    <div class="btn-group" role="group" aria-label="Basic mixed styles example">
+    <div class="btn-group" role="group" aria-label="summaryFeedbackRadioButtons" id="summaryQuality">
       <button type="button" type="submit" class="btn btn-danger" id="prev_id" >Previous</button>
       <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option1">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="1">
         <label class="form-check-label" for="inlineRadio1">1 (terrible) </label>
       </div>
       <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="2">
         <label class="form-check-label" for="inlineRadio2">2</label>
       </div>
       <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option3">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="3">
         <label class="form-check-label" for="inlineRadio1">3</label>
       </div>
       <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option4">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="4">
         <label class="form-check-label" for="inlineRadio2">4</label>
       </div>
       <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option5">
+        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="5">
         <label class="form-check-label" for="inlineRadio2">5 (excellent)</label>
       </div>
       <button type="button" type="submit" class="btn btn-success" id="next_id">Next</button>
@@ -192,13 +194,23 @@
     }
 
   submit_button.onclick = function() {
-    var feedback = get_extra_feedback();
+    var feedback = get_feedback();
+    send_feedback(feedback);
   }
 
 
 
-  function get_extra_feedback() {
+  function get_feedback() {
     var additional_feedback = new Object()
+
+    // get the values of the radio buttons
+    var quality = $("#summaryQuality input:radio:checked").val();
+    additional_feedback.feedback = quality;
+
+    additional_feedback.summary_id = {{summ_id}};
+
+
+    // Get the additional feedback
     additional_feedback.false_positive = document.getElementById("false_positive").checked;
     document.getElementById("false_positive").checked = false;
 
@@ -223,7 +235,7 @@
     additional_feedback.short_context = document.getElementById("short_context").checked;
     document.getElementById("short_context").checked = false;
 
-    additional_feedback.freeText = document.getElementById("freeFeedback").value;
+    additional_feedback.free_feedback = document.getElementById("freeFeedback").value;
     document.getElementById("freeFeedback").value = "";
 
     return additional_feedback;

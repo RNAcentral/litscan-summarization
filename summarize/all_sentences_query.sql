@@ -1,14 +1,15 @@
 select t.primary_id,
         (array_agg(t.result_id)) as result_id,
-        (array_agg( DISTINCT t.pmcid)) as pmcid,
-        (array_agg( DISTINCT t.job_id)) as job_id,
-        (array_agg(t.sentence)) as sentence
+        (array_concat_agg(  t.pmcid)) as pmcid,
+        (array_concat_agg( DISTINCT t.job_id)) as job_id,
+        -- (array_agg(t.sentence)) as sentence
+        (array_concat_agg((t.sentence))) as sentence
         from
         -- sub query to select only the first hit for each article
         (
-            select lsb.result_id, max(lsj.display_id) as primary_id, (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
-                            (array_agg( DISTINCT lsr.job_id))[1] as job_id,
-                            (array_agg(lsb.sentence))[1] as sentence
+            select lsb.result_id, max(lsj.display_id) as primary_id, (array_agg(  lsa.pmcid)) as pmcid,
+                            (array_agg( distinct lsr.job_id)) as job_id,
+                            (array_agg( lsb.sentence)) as sentence
             from embassy_rw.litscan_body_sentence lsb
             join embassy_rw.litscan_result lsr on lsr.id = lsb.result_id
             join embassy_rw.litscan_job lsj on lsj.job_id = lsr.job_id
@@ -22,7 +23,7 @@ select t.primary_id,
                                 '2a-1', '2b-2', '45s pre-rrna', '7sk',
                                 '7sk rna', '7sk snrna', '7slrna', 'rnai',
                                 '7sl rna', 'trna', 'snrna', 'mpa', 'msa', 'rns', 'tran',
-                                'dmr', 'cta', 'h19')
+                                'dmr', 'cta')
 
             and not lsb.sentence like '%found in an image%'
             and lsdb.primary_id is not NULL
