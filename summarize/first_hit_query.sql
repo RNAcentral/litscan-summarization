@@ -22,7 +22,7 @@ select t.primary_id,
                                 '2a-1', '2b-2', '45s pre-rrna', '7sk',
                                 '7sk rna', '7sk snrna', '7slrna', 'rnai',
                                 '7sl rna', 'trna', 'snrna', 'mpa', 'msa', 'rns', 'tran',
-                                'dmr', 'cta')
+                                'dmr', 'cta', 'h19')
 
             and not lsb.sentence like '%found in an image%'
             and lsdb.primary_id is not NULL
