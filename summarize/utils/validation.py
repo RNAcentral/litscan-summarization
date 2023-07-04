@@ -88,6 +88,17 @@ def not_too_many_refs_per_bracket(summary: str, context: str) -> bool:
     return True
 
 
+def correct_format(summary: str, context: str) -> bool:
+    """
+    ChatGPT seems to prefer using the [N] format for references, which is not what we want. This function
+    searches for that format and returns false if it finds it.
+    """
+    if re.search(r"\[\d+\]", summary):
+        logging.warn(f"Model has used the wrong format for references!")
+        return False
+    return True
+
+
 def validate_summary(summary: str, context: str):
     """
     Runs a suite of validation functions to ensure the summary is good enough
@@ -100,6 +111,7 @@ def validate_summary(summary: str, context: str):
         "real": references_are_real(summary, context),
         "end_sentences": references_end_sentences(summary),
         "appropriate_number": not_too_many_refs_per_bracket(summary, context),
+        "format": correct_format(summary, context),
     }
 
     ## Only give the summary a pass if all check pass
