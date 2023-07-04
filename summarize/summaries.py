@@ -39,14 +39,7 @@ def generate_summary(
         ),
         verbose=True,
     )
-    reference_chain = get_reference_chain(
-        get_model(
-            model_name,
-            {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
-            | extra_args,
-        ),
-        verbose=True,
-    )
+
     veracity_chain = get_veracity_chain(
         get_model(
             model_name,
@@ -89,6 +82,26 @@ def generate_summary(
         logging.warning(
             "Summary auto validation failed! Running reference insertion chain to rescue..."
         )
+        if not validation["adequate"]:
+            reference_chain = get_reference_chain(
+                get_model(
+                    model_name,
+                    {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+                    | extra_args,
+                ),
+                "adequate",
+                verbose=True,
+            )
+        elif not validation["real"]:
+            reference_chain = get_reference_chain(
+                get_model(
+                    model_name,
+                    {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+                    | extra_args,
+                ),
+                "fake",
+                verbose=True,
+            )
         with get_openai_callback() as cb:
             summary = reference_chain.run(
                 ent_id=ent_id, context_str=context, summary=summary, first_ref=first_ref
