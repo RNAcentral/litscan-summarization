@@ -72,44 +72,49 @@ def for_summary(
 
     model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
 
-    # sentence_df = sentence_df.filter(pl.col("primary_id").is_in(["FAM197Y2P", "LOC100288254", "FLJ13224", "LINC00910", "PSMA3-AS1", "SLC25A25-AS1"]))
     # ## WIP: Dealing with huge numbers of sentences is hard
     # ## First deal with those below context limit
-    tiny_df = sample_sentences(
-        sentence_df.filter(pl.col("total").lt(limit)), model, limit
-    )
-    # tiny_df = pl.read_json("below_limit.json")
-    tiny_df.write_json("below_limit.json")
-    print(f"Dataframe below context limit is size {len(tiny_df)}")
-    print(
-        f"Dataframe below context with >5 sentences is size {len(tiny_df.filter(pl.col('selected_sentences').list.lengths().gt(5)))}"
-    )
-    # ## Get the remainder with an anti join
-    remainder = sentence_df.join(tiny_df, on="primary_id", how="anti")
-    # ## Count what multiple each is of the limit
-    remainder = remainder.with_columns(
-        multiple=(pl.col("total") / limit).floor().cast(pl.Int64)
-    )
-    # ## Partition by multiple of the limit - should give manageable chunks
-    partitions = sorted(
-        remainder.partition_by("multiple"), key=lambda x: len(x), reverse=True
-    )
-    N_part = len(partitions)
-    for num, partition in enumerate(partitions):
+    if len(sentence_df) < 100:
+        sentence_df = sentence_df.with_columns(
+            multiple=(pl.col("total") / limit).floor().cast(pl.Int64)
+        )
+        sample_df = sample_sentences(sentence_df, model, limit)
+    else:
+        tiny_df = sample_sentences(
+            sentence_df.filter(pl.col("total").lt(limit)), model, limit
+        )
+        # tiny_df = pl.read_json("below_limit.json")
+        tiny_df.write_json("below_limit.json")
+        print(f"Dataframe below context limit is size {len(tiny_df)}")
         print(
-            f"Dataframe with {partition.get_column('multiple').unique().to_numpy()[0]}x context limit is size {len(partition)}"
+            f"Dataframe below context with >5 sentences is size {len(tiny_df.filter(pl.col('selected_sentences').list.lengths().gt(5)))}"
         )
-        intermediate = sample_sentences(partition, model, limit)
-        intermediate.write_json(f"intermediate_{num}.json")
-        del intermediate  ## I don't think this is actually that big, but just in case
+        # ## Get the remainder with an anti join
+        remainder = sentence_df.join(tiny_df, on="primary_id", how="anti")
+        # ## Count what multiple each is of the limit
+        remainder = remainder.with_columns(
+            multiple=(pl.col("total") / limit).floor().cast(pl.Int64)
+        )
+        # ## Partition by multiple of the limit - should give manageable chunks
+        partitions = sorted(
+            remainder.partition_by("multiple"), key=lambda x: len(x), reverse=True
+        )
+        N_part = len(partitions)
+        for num, partition in enumerate(partitions):
+            print(
+                f"Dataframe with {partition.get_column('multiple').unique().to_numpy()[0]}x context limit is size {len(partition)}"
+            )
+            intermediate = sample_sentences(partition, model, limit)
+            intermediate.write_json(f"intermediate_{num}.json")
+            del intermediate  ## I don't think this is actually that big, but just in case
 
-    ## Reassemble
-    sample_df = pl.read_json("below_limit.json")
-    sample_df = sample_df.with_columns(multiple=pl.lit(0).cast(pl.Int64))
-    for num in range(N_part):
-        sample_df = sample_df.vstack(
-            pl.read_json(f"intermediate_{num}.json").select(sample_df.columns)
-        )
+        ## Reassemble
+        sample_df = pl.read_json("below_limit.json")
+        sample_df = sample_df.with_columns(multiple=pl.lit(0).cast(pl.Int64))
+        for num in range(N_part):
+            sample_df = sample_df.vstack(
+                pl.read_json(f"intermediate_{num}.json").select(sample_df.columns)
+            )
 
     print(sample_df)
     return sample_df.select(
