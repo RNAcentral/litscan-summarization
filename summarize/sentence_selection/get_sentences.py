@@ -75,17 +75,14 @@ def for_summary(
     # sentence_df = sentence_df.filter(pl.col("primary_id").is_in(["FAM197Y2P", "LOC100288254", "FLJ13224", "LINC00910", "PSMA3-AS1", "SLC25A25-AS1"]))
     # ## WIP: Dealing with huge numbers of sentences is hard
     # ## First deal with those below context limit
-    tiny_df = sample_sentences(
-        sentence_df.filter(pl.col("total").lt(limit)), model, limit
-    )
-    # tiny_df = pl.read_json("below_limit.json")
-    tiny_df.write_json("below_limit.json")
-    print(f"Dataframe below context limit is size {len(tiny_df)}")
-    print(
-        f"Dataframe below context with >5 sentences is size {len(tiny_df.filter(pl.col('selected_sentences').list.lengths().gt(5)))}"
-    )
-    # ## Get the remainder with an anti join
-    remainder = sentence_df.join(tiny_df, on="primary_id", how="anti")
+    under_limit = sentence_df.filter(pl.col("total").lt(limit))
+    ## Get the remainder with an anti join
+    remainder = sentence_df.join(under_limit, on="primary_id", how="anti")
+    if len(under_limit) > 0:
+        tiny_df = sample_sentences(under_limit, model, limit)
+        tiny_df = tiny_df.with_columns(multiple=pl.lit(0).cast(pl.Int64))
+        print(f"Dataframe below context limit is size {len(tiny_df)}")
+
     # ## Count what multiple each is of the limit
     remainder = remainder.with_columns(
         multiple=(pl.col("total") / limit).floor().cast(pl.Int64)
@@ -104,9 +101,14 @@ def for_summary(
         del intermediate  ## I don't think this is actually that big, but just in case
 
     ## Reassemble
-    sample_df = pl.read_json("below_limit.json")
-    sample_df = sample_df.with_columns(multiple=pl.lit(0).cast(pl.Int64))
-    for num in range(N_part):
+    if len(under_limit) > 0:
+        sample_df = tiny_df
+        start = 0
+    else:
+        sample_df = pl.read_json(f"intermediate_0.json")
+        start = 1
+
+    for num in range(start, N_part):
         sample_df = sample_df.vstack(
             pl.read_json(f"intermediate_{num}.json").select(sample_df.columns)
         )
