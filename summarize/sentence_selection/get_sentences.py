@@ -74,47 +74,45 @@ def for_summary(
 
     # ## WIP: Dealing with huge numbers of sentences is hard
     # ## First deal with those below context limit
-    if len(sentence_df) < 100:
-        sentence_df = sentence_df.with_columns(
-            multiple=(pl.col("total") / limit).floor().cast(pl.Int64)
-        )
-        sample_df = sample_sentences(sentence_df, model, limit)
-    else:
-        tiny_df = sample_sentences(
-            sentence_df.filter(pl.col("total").lt(limit)), model, limit
-        )
-        # tiny_df = pl.read_json("below_limit.json")
-        tiny_df.write_json("below_limit.json")
+    under_limit = sentence_df.filter(pl.col("total").lt(limit))
+    ## Get the remainder with an anti join
+    remainder = sentence_df.join(under_limit, on="primary_id", how="anti")
+    if len(under_limit) > 0:
+        tiny_df = sample_sentences(under_limit, model, limit)
+        tiny_df = tiny_df.with_columns(multiple=pl.lit(0).cast(pl.Int64))
         print(f"Dataframe below context limit is size {len(tiny_df)}")
-        print(
-            f"Dataframe below context with >5 sentences is size {len(tiny_df.filter(pl.col('selected_sentences').list.lengths().gt(5)))}"
-        )
-        # ## Get the remainder with an anti join
-        remainder = sentence_df.join(tiny_df, on="primary_id", how="anti")
-        # ## Count what multiple each is of the limit
-        remainder = remainder.with_columns(
-            multiple=(pl.col("total") / limit).floor().cast(pl.Int64)
-        )
-        # ## Partition by multiple of the limit - should give manageable chunks
-        partitions = sorted(
-            remainder.partition_by("multiple"), key=lambda x: len(x), reverse=True
-        )
-        N_part = len(partitions)
-        for num, partition in enumerate(partitions):
-            print(
-                f"Dataframe with {partition.get_column('multiple').unique().to_numpy()[0]}x context limit is size {len(partition)}"
-            )
-            intermediate = sample_sentences(partition, model, limit)
-            intermediate.write_json(f"intermediate_{num}.json")
-            del intermediate  ## I don't think this is actually that big, but just in case
 
-        ## Reassemble
-        sample_df = pl.read_json("below_limit.json")
-        sample_df = sample_df.with_columns(multiple=pl.lit(0).cast(pl.Int64))
-        for num in range(N_part):
-            sample_df = sample_df.vstack(
-                pl.read_json(f"intermediate_{num}.json").select(sample_df.columns)
-            )
+    # ## Count what multiple each is of the limit
+    remainder = remainder.with_columns(
+        multiple=(pl.col("total") / limit).floor().cast(pl.Int64)
+    )
+    # ## Partition by multiple of the limit - should give manageable chunks
+    partitions = sorted(
+        remainder.partition_by("multiple"), key=lambda x: len(x), reverse=True
+    )
+    N_part = len(partitions)
+    for num, partition in enumerate(partitions):
+        print(
+            f"Dataframe with {partition.get_column('multiple').unique().to_numpy()[0]}x context limit is size {len(partition)}"
+        )
+        intermediate = sample_sentences(partition, model, limit)
+        intermediate.write_json(f"intermediate_{num}.json")
+        del intermediate  ## I don't think this is actually that big, but just in case
+
+    ## Reassemble
+    if len(under_limit) > 0:
+        sample_df = tiny_df
+        start = 0
+    else:
+        sample_df = pl.read_json(f"intermediate_0.json")
+        start = 1
+        Path(f"intermediate_0.json").unlink()
+
+    for num in range(start, N_part):
+        sample_df = sample_df.vstack(
+            pl.read_json(f"intermediate_{num}.json").select(sample_df.columns)
+        )
+        Path(f"intermediate_{num}.json").unlink()
 
     print(sample_df)
     return sample_df.select(
