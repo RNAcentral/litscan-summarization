@@ -14,6 +14,58 @@ from utils.validation import validate_summary
 pmcid_pattern = re.compile(r"PMC\d+")
 
 
+def validation_revise_summary(
+    summary: str,
+    context: str,
+    validation: dict,
+    total_tokens,
+    cost,
+    model_name: str,
+    ent_id: str,
+    first_ref: str,
+    extra_args={},
+):
+    if not validation["adequate"]:
+        reference_chain = get_reference_chain(
+            get_model(
+                model_name,
+                {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+                | extra_args,
+            ),
+            "adequate",
+            verbose=True,
+        )
+    elif not validation["real"]:
+        reference_chain = get_reference_chain(
+            get_model(
+                model_name,
+                {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+                | extra_args,
+            ),
+            "fake",
+            verbose=True,
+        )
+    else:
+        reference_chain = get_reference_chain(
+            get_model(
+                model_name,
+                {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+                | extra_args,
+            ),
+            "other",
+            verbose=True,
+        )
+    with get_openai_callback() as cb:
+        summary = reference_chain.run(
+            ent_id=ent_id, context_str=context, summary=summary, first_ref=first_ref
+        )
+        print(cb)
+        total_tokens += cb.total_tokens
+        cost += cb.total_cost
+
+    return summary, total_tokens, cost
+
+
 def generate_summary(
     model_name,
     ent_id,
@@ -71,6 +123,7 @@ def generate_summary(
     validation = validate_summary(summary, context)
     problem_summary = False
     attempt = 1
+    print(validation)
     while not all(validation.values()):
         if attempt >= max_rescue_attempts:
             logging.warning(
@@ -82,33 +135,45 @@ def generate_summary(
         logging.warning(
             "Summary auto validation failed! Running reference insertion chain to rescue..."
         )
-        if not validation["adequate"]:
-            reference_chain = get_reference_chain(
-                get_model(
-                    model_name,
-                    {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
-                    | extra_args,
-                ),
-                "adequate",
-                verbose=True,
-            )
-        elif not validation["real"]:
-            reference_chain = get_reference_chain(
-                get_model(
-                    model_name,
-                    {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
-                    | extra_args,
-                ),
-                "fake",
-                verbose=True,
-            )
-        with get_openai_callback() as cb:
-            summary = reference_chain.run(
-                ent_id=ent_id, context_str=context, summary=summary, first_ref=first_ref
-            )
-            print(cb)
-            total_tokens += cb.total_tokens
-            cost += cb.total_cost
+        # if not validation["adequate"]:
+        #     reference_chain = get_reference_chain(
+        #         get_model(
+        #             model_name,
+        #             {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+        #             | extra_args,
+        #         ),
+        #         "adequate",
+        #         verbose=True,
+        #     )
+        # elif not validation["real"]:
+        #     reference_chain = get_reference_chain(
+        #         get_model(
+        #             model_name,
+        #             {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+        #             | extra_args,
+        #         ),
+        #         "fake",
+        #         verbose=True,
+        #     )
+        # with get_openai_callback() as cb:
+        #     summary = reference_chain.run(
+        #         ent_id=ent_id, context_str=context, summary=summary, first_ref=first_ref
+        #     )
+        #     print(cb)
+        #     total_tokens += cb.total_tokens
+        #     cost += cb.total_cost
+        print(validation)
+        summary, total_tokens, cost = validation_revise_summary(
+            summary,
+            context,
+            validation,
+            total_tokens,
+            cost,
+            model_name,
+            ent_id,
+            first_ref,
+            extra_args,
+        )
 
         validation = validate_summary(summary, context)
         attempt += 1
@@ -144,6 +209,29 @@ def generate_summary(
                 print(cb)
                 total_tokens += cb.total_tokens
                 cost += cb.total_cost
+            validation = validate_summary(summary, context)
+            while not all(validation.values()):
+                if attempt >= max_rescue_attempts:
+                    logging.warning(
+                        f"Unable to generate a good summary for {ent_id}. Returning what we have and giving up"
+                    )
+                    # return summary
+                    problem_summary = True
+                    break
+                logging.warning(
+                    "Summary auto validation failed! Running reference insertion chain to rescue..."
+                )
+                summary, total_tokens, cost = validation_revise_summary(
+                    summary,
+                    context,
+                    validation,
+                    total_tokens,
+                    cost,
+                    model_name,
+                    ent_id,
+                    first_ref,
+                    extra_args,
+                )
 
     return (
         summary,
