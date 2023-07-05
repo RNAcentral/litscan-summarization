@@ -107,11 +107,13 @@ def for_summary(
     else:
         sample_df = pl.read_json(f"intermediate_0.json")
         start = 1
+        Path(f"intermediate_0.json").unlink()
 
     for num in range(start, N_part):
         sample_df = sample_df.vstack(
             pl.read_json(f"intermediate_{num}.json").select(sample_df.columns)
         )
+        Path(f"intermediate_{num}.json").unlink()
 
     print(sample_df)
     return sample_df.select(
