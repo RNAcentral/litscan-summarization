@@ -80,6 +80,7 @@ def get_bad_ref_format_revision_prompt() -> ChatPromptTemplate:
         "Uses the wrong format for references. Add the correct references to each sentence, using only references from the following context:"
         "\n{context_str}\n"
         "References are provided in the context, enclosed in [].\n"
+        'References in the summary that need replacing match the regex "\[\d+\]".\n'
         "For example, the first sentence has the reference [{first_ref}]. "
         "You must use the same format for references in your summary. "
         "Revised Summary: "
@@ -178,6 +179,8 @@ def get_reference_chain(llm, mode, verbose=False) -> LLMChain:
         prompt = get_bad_ref_format_revision_prompt()
     elif mode == "fake":
         prompt = get_fake_reference_revision_prompt()
+    elif mode == "other":
+        prompt = get_revision_prompt()
     chain = LLMChain(llm=llm, prompt=prompt, verbose=verbose)
     return chain
 
