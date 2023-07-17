@@ -94,7 +94,7 @@ curl -H "Content-Type:application/json" -d "{\"id\": \"P2_Phage_GpR\", \"query\"
 
 ### Visualising the results
 
-You can visualise your summaries by going to [http://localhost:7860](http://localhost:5000) which will show a Gradio app pulling data from the database inside LitSumm.
+You can visualise your summaries by going to [http://localhost:7860](http://localhost:7860) which will show a Gradio app pulling data from the database inside LitSumm.
 
 Here, you will be able to search the database for IDs you have run and populate the fields. Briefly, they are:
 
