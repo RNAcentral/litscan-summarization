@@ -489,18 +489,6 @@ typing-inspect = ">=0.4.0"
 dev = ["flake8", "hypothesis", "ipython", "mypy (>=0.710)", "portray", "pytest (>=7.2.0)", "setuptools", "simplejson", "twine", "types-dataclasses", "wheel"]
 
 [[package]]
-name = "diskcache"
-version = "5.6.1"
-description = "Disk Cache -- Disk and file backed persistent cache."
-category = "main"
-optional = false
-python-versions = ">=3"
-files = [
-    {file = "diskcache-5.6.1-py3-none-any.whl", hash = "sha256:558c6a2d5d7c721bb00e40711803d6804850c9f76c426ed81ecc627fe9d2ce2d"},
-    {file = "diskcache-5.6.1.tar.gz", hash = "sha256:e4c978532feff5814c4cc00fe1e11e40501985946643d73220d41ee7737c72c3"},
-]
-
-[[package]]
 name = "exceptiongroup"
 version = "1.1.2"
 description = "Backport of PEP 654 (exception groups)"
@@ -1177,22 +1165,21 @@ text-helpers = ["chardet (>=5.1.0,<6.0.0)"]
 
 [[package]]
 name = "llama-cpp-python"
-version = "0.1.73"
+version = "0.1.56"
 description = "A Python wrapper for llama.cpp"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "llama_cpp_python-0.1.73.tar.gz", hash = "sha256:09606fc0ebe9e752c4d40330811859406582411f5b9a18e3992031a20de1d898"},
+    {file = "llama_cpp_python-0.1.56.tar.gz", hash = "sha256:35aa5a0abbfa81d6317519701aed758a06152e471c525ac399ca42340822df42"},
 ]
 
 [package.dependencies]
-diskcache = ">=5.6.1"
-numpy = ">=1.20.0"
-typing-extensions = ">=4.5.0"
+numpy = ">=1.20.0,<2.0.0"
+typing-extensions = ">=4.6.2,<5.0.0"
 
 [package.extras]
-server = ["fastapi (>=0.100.0)", "pydantic-settings (>=2.0.1)", "sse-starlette (>=1.6.1)", "uvicorn (>=0.22.0)"]
+server = ["fastapi (>=0.95.0,<0.96.0)", "sse-starlette (>=1.3.3,<2.0.0)", "uvicorn (>=0.22.0,<0.23.0)"]
 
 [[package]]
 name = "llvmlite"
@@ -3168,4 +3155,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "7030977fe88049e70a951825d702bae201f6d498ac49c53ab390183ad8487871"
+content-hash = "9791a1b6eaf34182a60a053f686129f0d7abb9d1601db85e3e99ded6bf8f6252"

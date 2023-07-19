@@ -28,7 +28,7 @@ anthropic = "^0.2.10"
 matplotlib = "^3.7.1"
 seaborn = "^0.12.2"
 tqdm = "^4.65.0"
-llama-cpp-python = "^0.1.56"
+llama-cpp-python = "0.1.56"
 
 [build-system]
 requires = ["poetry-core"]
