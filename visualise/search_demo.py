@@ -135,7 +135,9 @@ def search_db(ent_id, conn_str=None):
         conn_str = os.getenv("PGDATABASE")
     conn = pg.connect(conn_str)
     cur = conn.cursor()
-    cur.execute("select * from litsumm_summaries where rna_id = %s", (ent_id.lower(),))
+    cur.execute(
+        "select * from litsumm_summaries where LOWER(rna_id) = %s", (ent_id.lower(),)
+    )
     res = cur.fetchone()
     if res is None:
         (
