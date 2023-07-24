@@ -178,36 +178,12 @@ def handle_sgd(conn_str, query):
     return sgd_initial
 
 
-def handle_mirbase(conn_str, query):
-    mirbase_initial = pull_data_from_db(conn_str, query)
-    mirgenedb = (
-        pl.scan_parquet("../mirgenedb_sentences.parquet")
-        .select(["urs_taxid", "primary_id"])
-        .with_columns(primary_id=pl.col("primary_id").list.first())
-        .collect()
-    )
-
-    print(mirbase_initial)
-    print(mirgenedb)
-
-    combo = mirbase_initial.join(mirgenedb, on="primary_id", how="anti")
-    print(combo)
-    sent = get_sentence_for_many(conn_str, combo)
-    initial_df = (
-        pl.scan_csv("mirbase_sentence_data.csv", low_memory=True).head(10).collect()
-    )
-    print(initial_df)
-    exit()
-
-
 def pull_initial(conn_str, query, database=""):
     """
     Pulls the initial data from the database. This is a bit different for SGD, so we have a separate function for that.
     """
     if database == "sgd":
         return handle_sgd(conn_str, query)
-    elif database == "mirbase":
-        return handle_mirbase(conn_str, query)
     else:
         return pull_data_from_db(conn_str, query)
 
