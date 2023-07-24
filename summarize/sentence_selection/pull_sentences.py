@@ -247,16 +247,44 @@ def per_database_pull_sentences(
 @click.option("--conn_str", envvar="PGDATABASE", type=str)
 @click.option("--query", type=click.Path(exists=True))
 @click.option("--output_file", type=click.Path())
+@click.option("--duplicates_file", type=click.Path())
 @click.option("--database", type=str, default="")
-def main(conn_str, query, output_file, database):
+def main(conn_str, query, output_file, duplicates_file, database):
     query = open(query, "r").read()
     initial = pull_initial(conn_str, query, database=database)
-    print(initial)
-    df = per_database_pull_sentences(
-        conn_str, initial, "queries/get_sentences_per_urs.sql"
+
+    ## Filter out non-specific miRNAs
+    initial = initial.with_columns(
+        aliases=pl.col("aliases")
+        .list.eval(
+            pl.element().filter(
+                pl.when(pl.element().str.contains("mir"))
+                .then(pl.element().str.count_match("-").gt(1))
+                .otherwise(pl.lit(True))
+            )
+        )
+        .list.eval(
+            pl.element().filter(
+                pl.when(pl.element().str.contains("iab"))
+                .then(pl.element().str.count_match("-").gt(1))
+                .otherwise(pl.lit(True))
+            )
+        )
+        .list.eval(
+            pl.element().filter(
+                pl.when(pl.element().str.contains("let"))
+                .then(pl.element().str.count_match("-").gt(1))
+                .otherwise(pl.lit(True))
+            )
+        )
     )
-    print(df)
+
+    df, duplicates = per_database_pull_sentences(
+        conn_str, initial, "../queries/get_sentences_per_urs.sql"
+    )
+
     df.write_parquet(output_file)
+    duplicates.write_csv(duplicates_file)
 
 
 if __name__ == "__main__":
