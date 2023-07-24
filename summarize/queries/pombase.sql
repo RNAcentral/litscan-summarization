@@ -2,7 +2,7 @@ select
 
 xref.upi || '_' || xref.taxid as urs_taxid,
 
-gene as primary,
+gene as primary_id,
 
 string_to_array(gene_synonym, ',') as aliases
 from rnc_accessions acc

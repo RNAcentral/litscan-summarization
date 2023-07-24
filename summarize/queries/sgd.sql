@@ -1,6 +1,6 @@
 select
 xref.upi || '_' || xref.taxid as urs_taxid,
-external_id
+external_id as primary_id
 
 -- split_part(split_part(description, ')', 1), '(', 2) as primary,
 -- ARRAY[''] as aliases

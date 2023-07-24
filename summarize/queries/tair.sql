@@ -20,7 +20,7 @@ select
 
 xref.upi || '_' || xref.taxid as urs_taxid,
 
-gene as primary,
+gene as primary_id,
 
 ARRAY[external_id, locus_tag] as aliases
 

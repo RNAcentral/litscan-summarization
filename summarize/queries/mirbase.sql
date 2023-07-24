@@ -1,6 +1,6 @@
 select
 xref.upi || '_' || xref.taxid as urs_taxid,
-LOWER(split_part(optional_id,'-',1)|| '-' || split_part(optional_id,'-',2) || '-' || split_part(split_part(optional_id,'-',3), '_', 1)   ) as primary,
+LOWER(split_part(optional_id,'-',1)|| '-' || split_part(optional_id,'-',2) || '-' || split_part(split_part(optional_id,'-',3), '_', 1)   ) as primary_id,
 ARRAY[LOWER(split_part(optional_id,'-',2) || '-' || split_part(split_part(optional_id,'-',3), '_', 1)   ),
       LOWER(external_id)
       ] as aliases
