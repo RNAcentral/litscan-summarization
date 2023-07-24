@@ -26,6 +26,46 @@ from psycopg2.extras import execute_values
 from tqdm import tqdm
 
 
+def careful_group_pmcids_sentences(df):
+    """
+    More careful aggregation of pmcids and sentences. This is because there is some ambiguity in the order of aggreagation, and we want to make sure we get the right one.
+    This function is applied on each group of the outer groupby on urs_taxid. Here, we group on PMCID, aggregating sentences and everything else to list (except urs_taxid and primary_id).
+    Then, we re-group on urs_taxid, aggregating everything to list.
+
+    Last trick is to replicate the old format by expanding the list out to be the same length as the number of sentences. That should allow me to reuse the topic modelling directly
+
+    """
+    df = (
+        df.sort("pmcid")
+        .groupby("pmcid")
+        .agg(
+            pl.col("urs_taxid").first(),
+            pl.col("sentence").unique(),
+            pl.col("primary_id").first(),
+            pl.col("ids_to_search"),
+        )
+    )
+
+    pmcids = df.get_column("pmcid").to_list()
+
+    repeated_pmcids = [
+        n * [pmcid]
+        for pmcid, n in zip(pmcids, df.get_column("sentence").list.lengths())
+    ]
+
+    repeated_pmcids = [item for sublist in repeated_pmcids for item in sublist]
+
+    return (
+        df.groupby("urs_taxid")
+        .agg(
+            pl.col("sentence").flatten(),
+            pl.col("primary_id").first(),
+            pl.col("ids_to_search").list.unique().flatten(),
+        )
+        .with_columns(pmcid=pl.Series([repeated_pmcids]))
+    )
+
+
 def pull_data_from_db(conn_str, query):
     """
     Just executes the pull using connextorx in the background. Should be directly writable to JSON, or useable as a dataframe.
@@ -102,14 +142,11 @@ def get_sentence_for_many(conn_str, data):
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     ## Create temp table to insert IDs into
-    cur.execute("CREATE TABLE temp_ids (id varchar(100), urs_taxid text);")
+    cur.execute("CREATE TEMPORARY TABLE temp_ids (id varchar(100), urs_taxid text);")
 
     ## make the df huge
     data = (
-        data.groupby("urs_taxid")
-        .agg(pl.col("primary_id"), pl.col("aliases").flatten())
-        .with_columns(ids_to_search=pl.col("aliases").list.concat(pl.col("primary_id")))
-        .select(["urs_taxid", "ids_to_search"])
+        data.select(["urs_taxid", "primary_id", "ids_to_search"])
         .explode("ids_to_search")
         .unique()
     )
@@ -121,7 +158,7 @@ def get_sentence_for_many(conn_str, data):
     execute_values(
         cur,
         "INSERT INTO temp_ids (id, urs_taxid) VALUES %s",
-        [(i, j) for i, j in zip(ids, urs_taxids)],
+        [(i.lower(), j) for i, j in zip(ids, urs_taxids)],
     )
 
     conn.commit()
@@ -134,18 +171,20 @@ def get_sentence_for_many(conn_str, data):
     join litscan_body_sentence lsbs on lsbs.result_id = lsr.id
     left join litscan_abstract_sentence lsas on lsas.result_id = lsr.id
     join temp_ids on temp_ids.id = lsr.job_id
-
-
-    and not lsa.retracted
+    where not lsa.retracted
     and not coalesce(lsbs.sentence, lsas.sentence) like '%found in an image%'
 
     """
     cur.execute(query)
-    res = pl.DataFrame(cur.fetchall())
 
-    ## WIP - we now need to do the grouping, making sure to maintain order
-    ## Should be doable in polars, but we need to have a manageable number of IDs first
-    # res.write_parquet("mirbase_intermediate.parquet")
+    res = (
+        pl.DataFrame(cur.fetchall())
+        .join(data, on="urs_taxid", how="left")
+        .drop_nulls()
+        .unique()
+    )
+    res = res.groupby("urs_taxid").apply(careful_group_pmcids_sentences)
+
     return res
 
 
@@ -189,34 +228,65 @@ def pull_initial(conn_str, query, database=""):
 
 
 def per_database_pull_sentences(
-    conn_str, initial_df, sentence_template_query, pull_initial=True
+    conn_str, initial_df, sentence_template_query, query_many=True
 ):
     sentence_template_query = open(sentence_template_query, "r").read()
     grouped_on_urs = initial_df.groupby("urs_taxid").agg(
-        pl.col("primary"), pl.col("aliases").flatten()
+        pl.col("primary_id"), pl.col("aliases").flatten()
     )
     grouped_on_urs = grouped_on_urs.with_columns(
-        ids_to_search=pl.col("primary")
+        ids_to_search=pl.col("primary_id")
         .list.concat(pl.col("aliases"))
         .list.unique()
         .list.eval(pl.element().filter(pl.element() != ""))
     ).sort("urs_taxid")
+    grouped_on_urs = grouped_on_urs.with_columns(
+        primary_id=pl.col("primary_id").list.first()
+    )
+    ## Handle multiple urs_taxids to one primary_id
+    if (
+        grouped_on_urs.groupby("primary_id")
+        .agg(pl.col("urs_taxid"), pl.count())
+        .filter(pl.col("count").gt(1))
+        .height
+        > 0
+    ):
+        duplicates = (
+            grouped_on_urs.groupby("primary_id")
+            .agg(pl.col("urs_taxid"), pl.count())
+            .filter(pl.col("count").gt(1))
+            .with_columns(pl.col("urs_taxid").apply(lambda x: x[1:]))
+            .select(["primary_id", "urs_taxid"])
+            .explode("urs_taxid")
+        )
+        grouped_on_urs = grouped_on_urs.join(
+            duplicates, on="urs_taxid", how="anti"
+        ).sort("primary_id")
+    else:
+        duplicates = pl.DataFrame({"primary_id": ["N/A"], "urs_taxid": ["N/A"]})
     grouped_on_urs.drop_nulls()
 
-    pbar = tqdm(total=len(grouped_on_urs), desc="Fetching sentences...", colour="green")
-
-    grouped_on_urs = grouped_on_urs.with_columns(
-        result=pl.struct(pl.col("ids_to_search"), pl.col("primary_id")).apply(
-            w_pbar(
-                pbar,
-                lambda x: get_sentence_for_one(conn_str, sentence_template_query, x),
-            )
+    if query_many:
+        grouped_on_urs = get_sentence_for_many(conn_str, grouped_on_urs)
+    else:
+        pbar = tqdm(
+            total=len(grouped_on_urs), desc="Fetching sentences...", colour="green"
         )
-    ).unnest("result")
 
-    grouped_on_urs = grouped_on_urs.filter(pl.col("pmcid").list.lengths() > 0)
+        grouped_on_urs = grouped_on_urs.with_columns(
+            result=pl.struct(pl.col("ids_to_search"), pl.col("primary_id")).apply(
+                w_pbar(
+                    pbar,
+                    lambda x: get_sentence_for_one(
+                        conn_str, sentence_template_query, x
+                    ),
+                )
+            )
+        ).unnest("result")
 
-    return grouped_on_urs
+        grouped_on_urs = grouped_on_urs.filter(pl.col("pmcid").list.lengths() > 0)
+
+    return grouped_on_urs, duplicates
 
 
 @click.command()
