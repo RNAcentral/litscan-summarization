@@ -104,7 +104,10 @@ def iterative_sentence_selector(row, model, token_limit=3072):
     num_clusters = len(communities)
 
     ## If there aren't too many clusters, this will be true, and we can select from them until we run out of tokens
-    if sum(get_token_length([s for sents in sentences for s in sents])) < token_limit:
+    if (
+        sum(get_token_length([s for sents in selected_sentences for s in sents]))
+        < token_limit
+    ):
         logging.info(f"Sampling communities for {ent_id}, until token limit")
         ## First, pop all the first sentences 'cause they're already in the list
         [c.pop(0) for c in communities]
