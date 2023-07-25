@@ -22,6 +22,7 @@ from summaries import generate_summary
 @click.option("--evaluate_truth", default=True, is_flag=True)
 @click.option("--write_db", default=False, is_flag=True)
 @click.option("--write_json", default=False, is_flag=True)
+@click.option("--write_parquet", default=False, is_flag=True)
 @click.option("--write_gdocs", default=False, is_flag=True)
 @click.option("--generation_limit", default=-1)
 @click.option("--start_idx", default=0)
@@ -44,6 +45,7 @@ def main(
     conn_str,
     write_db,
     write_json,
+    write_parquet,
     write_gdocs,
     model_name,
     model_path,
@@ -98,6 +100,7 @@ def main(
             cost,
             total_tokens,
             attempts,
+            rescue_prompts,
             problem_summary,
             truthful,
             veracity_check_result,
@@ -127,6 +130,7 @@ def main(
                 "cost": cost,
                 "total_tokens": total_tokens,
                 "attempts": attempts,
+                "rescue_prompts": rescue_prompts,
                 "problem_summary": problem_summary,
                 "truthful": truthful,
                 "consistency_check_result": veracity_check_result,
@@ -146,6 +150,11 @@ def main(
         ## Write the results to parquet
         df = pl.DataFrame(data_for_db)
         df.write_ndjson("summary_data.ndjson")
+
+    if write_parquet:
+        ## Write the results to parquet
+        df = pl.DataFrame(data_for_db)
+        df.write_parquet("summary_data.parquet")
 
     if write_gdocs:
         ## Create the googledocs

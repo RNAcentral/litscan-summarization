@@ -56,6 +56,20 @@ def validation_revise_summary(
             verbose=True,
         )
     with get_openai_callback() as cb:
+        prompt = (
+            reference_chain.prep_prompts(
+                [
+                    {
+                        "ent_id": ent_id,
+                        "context_str": context,
+                        "summary": summary,
+                        "first_ref": first_ref,
+                    }
+                ]
+            )[0][0]
+            .to_messages()[1]
+            .content
+        )
         summary = reference_chain.run(
             ent_id=ent_id, context_str=context, summary=summary, first_ref=first_ref
         )
@@ -63,7 +77,7 @@ def validation_revise_summary(
         total_tokens += cb.total_tokens
         cost += cb.total_cost
 
-    return summary, total_tokens, cost
+    return prompt, summary, total_tokens, cost
 
 
 def generate_summary(
@@ -124,6 +138,7 @@ def generate_summary(
     problem_summary = False
     attempt = 1
     print(validation)
+    rescue_prompts = []
     while not all(validation.values()):
         if attempt >= max_rescue_attempts:
             logging.warning(
@@ -163,7 +178,7 @@ def generate_summary(
         #     total_tokens += cb.total_tokens
         #     cost += cb.total_cost
         print(validation)
-        summary, total_tokens, cost = validation_revise_summary(
+        prompt, summary, total_tokens, cost = validation_revise_summary(
             summary,
             context,
             validation,
@@ -174,7 +189,7 @@ def generate_summary(
             first_ref,
             extra_args,
         )
-
+        rescue_prompts.append(prompt)
         validation = validate_summary(summary, context)
         attempt += 1
 
@@ -238,6 +253,7 @@ def generate_summary(
         cost,
         total_tokens,
         attempt,
+        rescue_prompts,
         problem_summary,
         truthful,
         veracity_check_result,
