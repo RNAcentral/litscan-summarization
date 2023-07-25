@@ -7,10 +7,10 @@ select t.primary_id,
 	from(
 	-- subquery selects only first hit from each article
     select lsb.result_id,
-            (array_agg( DISTINCT lsa.pmcid))[1] as pmcid,
-            (array_agg( DISTINCT lsr.job_id))[1] as primary_id,
-                (array_agg( DISTINCT lsr.job_id))[1] as job_id,
-            (array_agg(lsb.sentence))[1] as sentence
+            (array_agg( lsa.pmcid order by lsa.pmcid))[1] as pmcid,
+            (array_agg( lsr.job_id order by lsa.pmcid))[1] as primary_id,
+            (array_agg( lsr.job_id order by lsa.pmcid))[1] as job_id,
+            (array_agg(lsb.sentence order by lsa.pmcid))[1] as sentence
     from litscan_body_sentence lsb
     join litscan_result lsr on lsr.id = lsb.result_id
     join litscan_article lsa on lsa.pmcid = lsr.pmcid
