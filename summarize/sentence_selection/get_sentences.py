@@ -65,7 +65,7 @@ def for_summary(
             ## No sentences to summarize
             return None
 
-        sentence_df = tokenize_and_count(sentence_df)
+        sentence_df = tokenize_and_count(sentence_df, limit)
         if cache is not None:
             sentence_df.write_json(cache)
     sentence_df = resolve_aliases(sentence_df)
