@@ -236,7 +236,7 @@ def generate_summary(
                 logging.warning(
                     "Summary auto validation failed! Running reference insertion chain to rescue..."
                 )
-                summary, total_tokens, cost = validation_revise_summary(
+                prompt, summary, total_tokens, cost = validation_revise_summary(
                     summary,
                     context,
                     validation,
@@ -247,6 +247,7 @@ def generate_summary(
                     first_ref,
                     extra_args,
                 )
+                rescue_prompts.append(prompt)
 
     return (
         summary,
