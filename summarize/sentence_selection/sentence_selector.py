@@ -60,7 +60,6 @@ def iterative_sentence_selector(row, model, token_limit=3072):
         selected_pmcids = []
         selected_idxs = []
         for idx in sorted_idxs:
-            print(idx)
             selected_sentences.append(sentences[idx])
             selected_pmcids.append(pmcids[idx])
             selected_idxs.append(idx)
