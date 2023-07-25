@@ -92,6 +92,11 @@ Or if you only want to use the id, run
 curl -H "Content-Type:application/json" -d "{\"id\": \"P2_Phage_GpR\", \"query\": \"\"}" localhost:8080/api/submit-job
 ```
 
+To rescan an id and create a new summary, use the `rescan` parameter
+```
+curl -H "Content-Type:application/json" -d "{\"id\": \"bta-mir-16a\", \"rescan\": true}" localhost:8080/api/submit-job
+```
+
 ### Visualising the results
 
 You can visualise your summaries by going to [http://localhost:7860](http://localhost:5000) which will show a Gradio app pulling data from the database inside LitSumm.
