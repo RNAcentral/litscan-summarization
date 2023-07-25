@@ -182,7 +182,6 @@ def iterative_sentence_selector(row, model, token_limit=3072):
     )
     logging.info(f"Number of clusters: {len(communities)}")
     logging.info(f"Number of sentences: {len(sentences)}")
-    print(sentences[communities[0][1]])
 
     ## If we're here, there are still too many tokens in the selection. Now we need to optimize for diversity and token count
     ## Use a greedy algorithm on the cluster centres, start with the first because it should be the largest cluster
