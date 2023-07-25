@@ -205,32 +205,28 @@ def iterative_sentence_selector(row, model, token_limit=3072):
             community_idx = []
             idx_to_copy = []
             for c_idx, comm in enumerate(communities):
-                if (
-                    len(comm) == 0
-                ):  ## If we've run out of sentences in the community, skip it
-                    continue
-                idx = comm[0]  ## Get the first sentence in the community
-                if (
-                    idx in selected_idxs
-                ):  ## This index should be to the sentences, so this ought to be impossible...
-                    continue
-                embedding = embeddings[idx]
-                distances.append(
-                    util.pairwise_dot_score(selected_embedding, embedding)
-                    .numpy()
-                    .tolist()
-                )
-                cost.append(distances[-1])
-                idx_to_copy.append(idx)
+                if len(comm) == 0:
+                    continue  ## If we've run out of sentences in the community, skip it
+                comm_embeddings = embeddings[comm]
+                for embedding in comm_embeddings:
+                    distances.append(
+                        util.pairwise_dot_score(selected_embedding, embedding)
+                        .numpy()
+                        .tolist()
+                    )
+                cost.append(np.max(distances))
+                idx_to_copy.extend(comm)
                 community_idx.append(c_idx)
         if len(cost) == 0:
             break  ## This would mean we've exhausted all the sentences in the communities
         ## Get the index of the minimum, use to grab the right sentence and community
-        min_index = np.argmin(cost)
-        comm_index = community_idx[min_index]
-        communities[comm_index].pop(
-            0
-        )  ## Remove the selected sentence from the community
+        min_index = np.argmax(cost)
+
+        comm_index = idx_to_copy[min_index]
+        for comm in communities:
+            if comm_index in comm:
+                comm.pop(comm.index(comm_index))
+
         next_selection = idx_to_copy[min_index]
 
         ## Put the selection in...
