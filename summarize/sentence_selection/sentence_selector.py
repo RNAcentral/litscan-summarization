@@ -220,6 +220,8 @@ def iterative_sentence_selector(row, model, token_limit=3072):
                 cost.append(distances[-1])
                 idx_to_copy.append(idx)
                 community_idx.append(c_idx)
+        if len(cost) == 0:
+            break  ## This would mean we've exhausted all the sentences in the communities
         ## Get the index of the minimum, use to grab the right sentence and community
         min_index = np.argmin(cost)
         comm_index = community_idx[min_index]
