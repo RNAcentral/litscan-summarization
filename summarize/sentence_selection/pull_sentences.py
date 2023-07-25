@@ -60,7 +60,7 @@ def careful_group_pmcids_sentences(df):
         .agg(
             pl.col("sentence").flatten(),
             pl.col("primary_id").first(),
-            pl.col("ids_to_search").list.unique().flatten(),
+            pl.col("ids_to_search").list.unique().flatten().unique(),
         )
         .with_columns(pmcid=pl.Series([repeated_pmcids]))
     )
@@ -323,12 +323,28 @@ def main(conn_str, query, output_file, duplicates_file, database):
                 .otherwise(pl.lit(True))
             )
         )
+        .list.eval(
+            pl.element().filter(
+                pl.element().str.lengths().ge(4)
+            )  ## Filter out short IDs
+        )
+        .list.eval(
+            pl.element().filter(
+                pl.element().str.lengths().le(25)
+            )  ## Filter out long IDs
+        )
+        .list.eval(
+            pl.element().filter(
+                pl.element().str.contains(" ")
+            )  ## Filter out IDs with spaces
+        )
     )
 
     df, duplicates = per_database_pull_sentences(
         conn_str, initial, "../queries/get_sentences_per_urs.sql"
     )
 
+    print(df.sort(pl.col("ids_to_search").list.lengths()))
     df.write_parquet(output_file)
     duplicates.write_csv(duplicates_file)
 
