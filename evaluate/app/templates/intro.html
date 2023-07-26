@@ -12,10 +12,21 @@
         If you want to reset the list of IDs you've seen, there's a button at the bottom of this page.</p>
 
     <h2>Instructions</h2>
+    <h3>General instructions</h3>
     <p>We are aiming to get a score for each of the summaries in this evaluation set. You should score based on how coherent the summary is, how much important information it managed to capture from the context, and how well it follows our instructions (i.e. references, made up information etc)</p>
-    <p>You should primarily score on the 1-5 scale provided. However we would also like to get some deeper information if possible. This is optional, but if you have time, please fill in the additional feedback section. This will help us to understand what went wrong with the summaries, and how we can improve them in the future.</p>
-    <p>There is also a free text feedback space. Treat this like you are talking to the 'person' who wrote the summary. For example, in the summary for 2G7 (which I know is a false positive, but still...) I provided the following additional feedback: "References are mis formatted at the end, should be [PMC4132713, PMC4163918, PMC7961499, PMC4132713, PMC4163918]." </p>
-    <p>Finally, if you have no opinion on a summary or simply want to mark it as a false positive without rating, just refresh the page and another one will load for you.</p>
+    <p>You should primarily score on the 1-5 scale provided. However we would also like to get some deeper information if possible. This is optional, but if you have time, please fill in the additional feedback section.
+        This will help us to understand what went wrong with the summaries, and how we can improve them in the future.</p>
+    <p>There is also a free text feedback space. Treat this like you are talking to the 'person' who wrote the summary.</p>
+    <p><b>Do not spend time reading into the papers</b>, to see if there is missing important information. The summary can only be made from the information in the context, so assess it based on that.</p>
+    <p>From the way the context is constructed, we somewhat expect the summary to jump topic a bit, but if it is excessive, score the summary lower.</p>
+    <p>Do not penalise the summary if it contains unexplained abbreviations, unless the abbreviation is explained in the context.</p>
+    <p>Do not penalise the summary for having references formatted a bit badly, e.g. [PMC...][PMC...].</p>
+    <p>However, if a summary has totally mis-formatted references, e.g. [1] instead of a PMCID, score it badly.</p>
+    <p>I'm reasonably confident that the ID selection has excluded false positives, but should you encounter one, give it a score of 1 and make sure the false positive box is checked in the additional feedback.</p>
+    <p>Finally, if you have no opinion on a summary, just click next and another one will load for you.</p>
+    <h3>Getting started</h3>
+    <p>The first thing to do is enter your name in the box below and click submit. This will store a cookie 'user_name' on your browser which we will use to aggregate your ratings. You can use a pseudonym if you like, as long as you're consistent.</p>
+    <br>
     <p>To start reviewing, click start below. Doing so will take you to a page where the RNA ID is at the top, followed by the context in a collapsible element, then the chatGPT generated summary. You should see something that looks like this:</p>
     <div class="text-center">
         <img src="{{url_for('static', filename='Screen1.png')}}" class="img-thumbnail" style="max-width: 50%">
@@ -28,7 +39,7 @@
         <img src="{{url_for('static', filename='Screen2.png')}}" class="img-thumbnail" style="max-width: 50%">
     </div>
     <p>One thing to note here - if you <i>don't</i> check a box, it implies that aspect of the summary was fine. It is totally fine not to provide additional feedback if you think the summary is ok.</p>
-    <p>As mentioned, treat the free feedback as if you were instructing the model. State what is wrong and give instructions to rectify it, like the badly formatted reference example above</p>
+    <p>As mentioned, treat the free feedback as if you were instructing the model. State what is wrong and give instructions to rectify it</p>
 
     <h3 class="text-center">Thank you!</h3>
 </div>
