@@ -87,6 +87,7 @@ def run_summary_job(job_ids, conn_str):
             cost,
             total_tokens,
             attempts,
+            rescue_prompts,
             problem_summary,
             truthful,
             veracity_check_result,
@@ -112,6 +113,7 @@ def run_summary_job(job_ids, conn_str):
                 "truthful": truthful,
                 "consistency_check_result": veracity_check_result,
                 "selection_method": row["method"],
+                "rescue_prompts": rescue_prompts,
             }
         )
     logging.info("Inserting all summaries into database...")
