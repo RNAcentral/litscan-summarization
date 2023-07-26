@@ -24,8 +24,10 @@ def validation_revise_summary(
     ent_id: str,
     first_ref: str,
     extra_args={},
+    verbose=False,
 ):
-    if not validation["adequate"]:
+    if not validation["adequate"] and validation["format"]:
+        ## References are right format, just not enough
         reference_chain = get_reference_chain(
             get_model(
                 model_name,
@@ -33,7 +35,7 @@ def validation_revise_summary(
                 | extra_args,
             ),
             "adequate",
-            verbose=True,
+            verbose=verbose,
         )
     elif not validation["real"]:
         reference_chain = get_reference_chain(
@@ -43,7 +45,17 @@ def validation_revise_summary(
                 | extra_args,
             ),
             "fake",
-            verbose=True,
+            verbose=verbose,
+        )
+    elif not validation["format"]:
+        reference_chain = get_reference_chain(
+            get_model(
+                model_name,
+                {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
+                | extra_args,
+            ),
+            "bad_format",
+            verbose=verbose,
         )
     else:
         reference_chain = get_reference_chain(
@@ -53,7 +65,7 @@ def validation_revise_summary(
                 | extra_args,
             ),
             "other",
-            verbose=True,
+            verbose=verbose,
         )
     with get_openai_callback() as cb:
         prompt = (
@@ -87,6 +99,7 @@ def generate_summary(
     evaluate_truth=False,
     max_rescue_attempts=4,
     extra_args={},
+    verbose=False,
 ):
     """
     Runs the LLM chains to produce a summary, first the summarizer chain,
@@ -103,7 +116,7 @@ def generate_summary(
             {"temperature": 0.1, "presence_penalty": -2, "frequency_penalty": 1}
             | extra_args,
         ),
-        verbose=True,
+        verbose=verbose,
     )
 
     veracity_chain = get_veracity_chain(
@@ -112,7 +125,7 @@ def generate_summary(
             {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
             | extra_args,
         ),
-        verbose=True,
+        verbose=verbose,
     )
 
     veracity_revision_chain = get_veracity_revision_chain(
@@ -121,7 +134,7 @@ def generate_summary(
             {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
             | extra_args,
         ),
-        verbose=True,
+        verbose=verbose,
     )
     total_tokens = 0
     cost = 0
@@ -188,6 +201,7 @@ def generate_summary(
             ent_id,
             first_ref,
             extra_args,
+            verbose,
         )
         rescue_prompts.append(prompt)
         validation = validate_summary(summary, context)
@@ -246,6 +260,7 @@ def generate_summary(
                     ent_id,
                     first_ref,
                     extra_args,
+                    verbose,
                 )
                 rescue_prompts.append(prompt)
                 attempt += 1
