@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 import polars as pl
 from sentence_selection import get_sentences
+from tqdm import tqdm
 from utils.context import build_context
 from utils.database import insert_rna_data
 from utils.googledocs import create_id_link_spreadsheet, create_summary_doc
@@ -30,6 +31,7 @@ from summaries import generate_summary
 @click.option("--model_name", default="chatGPT")
 @click.option("--model_path", default=None)
 @click.option("--min_sentences", default=0)
+@click.option("--verbosity", default=False, is_flag=True)
 def main(
     context_output_dir,
     summary_output_dir,
@@ -50,6 +52,7 @@ def main(
     model_name,
     model_path,
     min_sentences,
+    verbosity,
 ):
     context_output_dir = Path(context_output_dir)
     context_output_dir.mkdir(parents=True, exist_ok=True)
@@ -82,10 +85,12 @@ def main(
         print("Not running by request, exiting early")
         return
     ids_done = 0
-    for idx, row in enumerate(
-        sentence_df.filter(
-            pl.col("selected_sentences").list.lengths().gt(min_sentences)
-        ).iter_rows(named=True)
+    for idx, row in tqdm(
+        enumerate(
+            sentence_df.filter(
+                pl.col("selected_sentences").list.lengths().gt(min_sentences)
+            ).iter_rows(named=True)
+        )
     ):
         if start_idx > idx:
             continue
@@ -110,6 +115,7 @@ def main(
             context,
             evaluate_truth=evaluate_truth,
             extra_args=extra_args,
+            verbose=verbosity,
         )
         with open(
             summary_output_dir / f"{row['primary_id']}.txt", "w"
