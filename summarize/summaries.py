@@ -248,6 +248,8 @@ def generate_summary(
                     extra_args,
                 )
                 rescue_prompts.append(prompt)
+                attempt += 1
+                validation = validate_summary(summary, context)
 
     return (
         summary,
