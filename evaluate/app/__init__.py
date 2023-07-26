@@ -93,6 +93,15 @@ def reset_seen():
     return resp
 
 
+@app.route("/set_user")
+def set_user():
+    user_id = request.args.get("user_name")
+    print(user_id)
+    resp = make_response(url_for("intro"))
+    resp.set_cookie("user", user_id)
+    return resp
+
+
 @app.route("/single")
 def present_single_summary():
     conn = psycopg2.connect(conn_str)
@@ -150,6 +159,7 @@ def present_single_summary():
             problematic_summary,
             veracity_result,
             selection_method,
+            rescue_prompts,
         ) = cur.fetchone()
 
         app.logger.debug(rna_id)

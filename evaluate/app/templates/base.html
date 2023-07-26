@@ -49,6 +49,16 @@
                     });
                 }
             </script>
+
+            <script type="text/javascript">
+                function set_user_name(){
+                    $.get({url:'{{url_for("set_user")}}?user_name=' + document.getElementById("user_name").value},
+                    function(result){
+                        console.log("User name set to " + document.getElementById("user_name").value);
+                        window.location.href = result;
+                    });
+                }
+            </script>
         {% endblock %}
     </body>
 </html>
