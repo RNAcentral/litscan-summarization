@@ -165,10 +165,9 @@ def present_single_summary():
 
         resp.set_cookie("seen_ids", " ".join([str(i) for i in seen_ids]))
 
-    user_id = request.cookies.get("user")
-    if user_id is None:
-        user_id = uuid.uuid4()
-        resp.set_cookie("user", str(user_id))
+    user_id = request.cookies.get("name")
+    if not user_id or user_id == "":
+        resp.set_cookie("name", "anonymous")
 
     return resp
 
@@ -180,7 +179,7 @@ def save_single_feedback():
 
     feedback = request.json
 
-    user_id = request.cookies.get("user")
+    user_id = request.cookies.get("name")
     feedback["user_id"] = str(user_id)
 
     print(feedback)

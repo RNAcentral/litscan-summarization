@@ -49,6 +49,25 @@
                     });
                 }
             </script>
+
+            <script type="text/javascript">
+                function start_review(){
+                    let name = document.getElementById("name");
+                    document.cookie = `name=${name.value}`;
+
+                    let url='{{url_for("present_single_summary")}}';
+                    window.location.replace(url);
+                }
+            </script>
+
+            <script type="text/javascript">
+                window.onload = function(){
+                    let element = document.getElementById("name")
+                    if (element) {
+                        element.value = document.cookie.split("name=")[1] ? document.cookie.split("name=")[1].split(";")[0] : "";
+                    }
+                }
+            </script>
         {% endblock %}
     </body>
 </html>
