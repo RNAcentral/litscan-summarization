@@ -178,6 +178,7 @@ def search_db(ent_id, conn_str=None):
             problematic_summary,
             veracity_result,
             selection_method,
+            rescue_prompts,
         ) = res
         first_ref = pmcid_pattern.findall(context)[0]
         prompt_1 = context_padding.format(
