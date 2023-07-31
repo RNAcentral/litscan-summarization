@@ -15,10 +15,11 @@ from utils.database import insert_rna_data
 @click.command()
 @click.option("--conn_str", envvar="PGDATABASE")
 @click.option("--summary_data", default="summary_data.json", type=click.Path())
-def main(conn_str, summary_data):
+@click.option("--overwrite", is_flag=True, default=False)
+def main(conn_str, summary_data, overwrite):
     summary_data = pl.read_ndjson(summary_data)
     print(summary_data)
-    insert_rna_data(summary_data.to_dicts(), conn_str)
+    insert_rna_data(summary_data.to_dicts(), conn_str, overwrite=overwrite)
 
 
 if __name__ == "__main__":
