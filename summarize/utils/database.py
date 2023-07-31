@@ -39,7 +39,7 @@ def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
     else:
         if overwrite:
             logging.warning("Overwriting data in database!")
-            cur.execute("truncate table litsumm_summaries")
+            cur.execute("truncate table litsumm_summaries cascade")
         else:
             logging.warning(
                 "Appending data! Things might get funky if inserting duplicate entity IDs!"
