@@ -27,13 +27,22 @@ def poll_litscan_job():
     conn = psycopg2.connect(conn_str)
     cur = conn.cursor()
 
-    ## Query to get those IDs we haven't summarized yet, but which are finished
+    # Query to get those primary_ids we haven't summarized yet
     query = """
-    SELECT j.job_id
-    FROM litscan_job j
-    LEFT JOIN litsumm_summaries a ON j.job_id = a.rna_id
-    WHERE a.rna_id IS NULL
-    AND j.hit_count > 0;
+    SELECT DISTINCT d.primary_id 
+    FROM litscan_database d 
+    JOIN litscan_job j ON d.primary_id = j.job_id 
+    LEFT JOIN litsumm_summaries s ON d.primary_id = s.rna_id 
+    WHERE s.rna_id IS NULL AND j.status='success';
+    """
+
+    # Query to get the IDs related to a specific primary_id
+    query_jobs = """
+    SELECT DISTINCT d.job_id 
+    FROM litscan_database d 
+    JOIN litscan_job j ON d.job_id = j.job_id 
+    WHERE (j.hit_count > 0 AND d.primary_id='{0}')
+    OR (j.hit_count > 0 AND j.job_id='{0}');
     """
 
     while True:
@@ -41,10 +50,16 @@ def poll_litscan_job():
         cur.execute(query)  # .
         res = cur.fetchall()
         if len(res) > 0:
-            ## convert the list of tuples to a list of ids - then re-tupleify later
+            # convert the list of tuples to a list of ids - then re-tupleify later
             res = [r[0] for r in res]
-            logging.info(f"Got {len(res)} new jobs to summarize!)")
-            run_summary_job(res, conn_str)
+            logging.info(f"Got {len(res)} new jobs to summarize!")
+
+            # get related ids to summarize
+            cur.execute(query_jobs.format(res[0]))
+            get_jobs = cur.fetchall()
+            jobs = [job[0] for job in get_jobs]
+            logging.info(f"Summarizing the following jobs: {jobs}")
+            run_summary_job(jobs, conn_str)
         sleep(30)
 
 
