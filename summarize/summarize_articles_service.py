@@ -52,14 +52,24 @@ def poll_litscan_job():
         if len(res) > 0:
             # convert the list of tuples to a list of ids - then re-tupleify later
             res = [r[0] for r in res]
-            logging.info(f"Got {len(res)} new jobs to summarize!")
 
             # get related ids to summarize
             cur.execute(query_jobs.format(res[0]))
             get_jobs = cur.fetchall()
             jobs = [job[0] for job in get_jobs]
-            logging.info(f"Summarizing the following jobs: {jobs}")
-            run_summary_job(jobs, conn_str)
+
+            if jobs:
+                logging.info(f"Summarizing the following jobs: {jobs}")
+                run_summary_job(jobs, conn_str)
+            else:
+                query_update = """
+                UPDATE litscan_job 
+                SET status='finished' 
+                WHERE job_id='{0}';
+                """
+                cur.execute(query_update.format(res[0]))
+                conn.commit()
+                logging.info(f"The primary_id {res[0]} has no sentences to summarize")
         sleep(30)
 
 
