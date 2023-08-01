@@ -56,7 +56,7 @@ class SiameseSummaryEvaluator(nn.Module):
 
         ## Mix the vectors
         mixed = self.mix(torch.cat((summ_vec, ctx_vec), dim=1))
-        # mixed = self.dropout(torch.max(mixed, dim=1)[0])
+        mixed = self.dropout(mixed)
 
         logits = self.classifier(mixed)
 
