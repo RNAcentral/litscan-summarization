@@ -1,8 +1,7 @@
-select t.primary_id,
-		(array_agg(t.result_id)) as result_id,
-		(array_agg(t.pmcid)) as pmcid,
-      (array_agg(t.job_id)) as job_id,
-		(array_agg(t.sentence)) as sentence
+select (array_agg(t.result_id)) as result_id,
+       (array_agg(t.pmcid)) as pmcid,
+       (array_agg(t.job_id)) as job_id,
+       (array_agg(t.sentence)) as sentence
 
 	from(
 	-- subquery selects only first hit from each article
@@ -19,4 +18,3 @@ select t.primary_id,
     and not lsb.sentence like '%%found in an image%%'
     group by lsb.result_id
     ) as t
-    group by t.primary_id
