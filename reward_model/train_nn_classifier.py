@@ -150,6 +150,8 @@ def main(
 
     train_losses = []
     eval_losses = []
+    train_accs = []
+    eval_accs = []
 
     model.to(device)
     for epoch in range(num_epochs):
@@ -167,7 +169,7 @@ def main(
             predictions = torch.argmax(outputs.logits, dim=-1)
             metric_train.add_batch(predictions=predictions, references=batch["labels"])
             progress_bar_train.update(1)
-        print(metric_train.compute())
+        train_accs.append(metric_train.compute()["accuracy"])
         model.eval()
         for batch in eval_dataloader:
             batch = {k: v.to(device) for k, v in batch.items()}
@@ -180,7 +182,7 @@ def main(
             metric_eval.add_batch(predictions=predictions, references=batch["labels"])
             progress_bar_eval.update(1)
 
-        print(metric_eval.compute())
+        eval_accs.append(metric_eval.compute()["accuracy"])
 
     train_steps = np.arange(len(train_losses))
     eval_steps = np.arange(len(eval_losses))
@@ -198,9 +200,22 @@ def main(
     loss_curve_location = output_dir / "losscurves.png"
     plt.savefig(loss_curve_location)
 
+    plt.figure()
+    plt.plot(np.arange(num_epochs), train_accs, label="Train")
+    plt.plot(np.arange(num_epochs), eval_accs, label="Eval")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.savefig(output_dir / "accuracycurves.png")
+
     ## Build and save dataframe with training and eval losses
-    loss_df = pl.DataFrame({"train_loss": train_losses, "eval_loss": eval_losses})
-    loss_df.write_parquet(output_dir / "losses.pq")
+    loss_df = pl.DataFrame({"train_loss": train_losses})
+    eval_loss_df = pl.DataFrame({"eval_loss": eval_losses})
+    loss_df.write_parquet(output_dir / "train_losses.pq")
+    eval_loss_df.write_parquet(output_dir / "eval_losses.pq")
+
+    accu_df = pl.DataFrame({"train_acc": train_accs, "eval_acc": eval_accs})
+    accu_df.write_parquet(output_dir / "accuracy.pq")
 
 
 if __name__ == "__main__":
