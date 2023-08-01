@@ -27,9 +27,9 @@ class SiameseSummaryEvaluator(nn.Module):
                 device="mps",
             ),
         )
-        self.mix = nn.Linear(2 * 768, 512)
+
         self.dropout = nn.Dropout(0.1)
-        self.classifier = nn.Linear(512, num_classes)
+        self.classifier = nn.Linear(2 * 768, num_classes)
         self.num_classes = num_classes
 
     def forward(
@@ -54,11 +54,7 @@ class SiameseSummaryEvaluator(nn.Module):
         ctx_vec = ctx_output[2][-2][:, 0, :]
         ## The last set of indices should be getting the embedding of the CLS token - i.e. sentence level?
 
-        ## Mix the vectors
-        mixed = self.mix(torch.cat((summ_vec, ctx_vec), dim=1))
-        mixed = self.dropout(mixed)
-
-        logits = self.classifier(mixed)
+        logits = self.classifier(self.dropout(torch.cat((summ_vec, ctx_vec), dim=1)))
 
         loss = None
         if labels is not None:
