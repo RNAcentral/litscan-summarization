@@ -11,15 +11,31 @@ from utils.googledocs import create_id_link_spreadsheet, create_summary_doc
 from summaries import generate_summary
 
 
+def write_output(data_for_db, output_basename, write_json, write_parquet):
+    df = pl.DataFrame(data_for_db)
+    if write_json:
+        ## Write the results to ndjson
+        output_loc = Path(f"{output_basename}.ndjson")
+        if output_loc.exists():
+            existing = pl.read_ndjson(output_loc)
+            df = existing.vstack(df).unique()
+        df.write_ndjson(f"{output_basename}.ndjson")
+
+    if write_parquet:
+        ## Write the results to parquet
+        output_loc = Path(f"{output_basename}.parquet")
+        if output_loc.exists():
+            existing = pl.read_parquet(output_loc)
+            df = existing.vstack(df).unique()
+        df.write_parquet(f"{output_basename}.parquet")
+
+
 @click.command()
 @click.option("--context_output_dir", default="contexts", type=click.Path())
 @click.option("--summary_output_dir", default="summaries", type=click.Path())
 @click.option("--veracity_output_dir", default="veracity_checks", type=click.Path())
 @click.option("--cached_sentences", default="sentences.json", type=click.Path())
 @click.option("--conn_str", envvar="PGDATABASE")
-@click.option("--device", default="cpu:0")
-@click.option("--query_file", default="query.sql")
-@click.option("--token_limit", default=2560)
 @click.option("--evaluate_truth", default=True, is_flag=True)
 @click.option("--write_db", default=False, is_flag=True)
 @click.option("--write_json", default=False, is_flag=True)
@@ -28,9 +44,10 @@ from summaries import generate_summary
 @click.option("--generation_limit", default=-1)
 @click.option("--start_idx", default=0)
 @click.option("--dry_run", default=False, is_flag=True)
+@click.option("--output_basename", default="summary_data")
+@click.option("--checkpoint_interval", default=50)
 @click.option("--model_name", default="chatGPT")
 @click.option("--model_path", default=None)
-@click.option("--min_sentences", default=0)
 @click.option("--verbosity", default=False, is_flag=True)
 def main(
     context_output_dir,
@@ -41,17 +58,14 @@ def main(
     generation_limit,
     start_idx,
     dry_run,
-    device,
-    query_file,
-    token_limit,
+    output_basename,
+    checkpoint_interval,
     conn_str,
     write_db,
     write_json,
     write_parquet,
-    write_gdocs,
     model_name,
     model_path,
-    min_sentences,
     verbosity,
 ):
     context_output_dir = Path(context_output_dir)
@@ -71,27 +85,13 @@ def main(
     if Path(cached_sentences).exists():
         sentence_df = pl.read_json(cached_sentences)
     else:
-        query = Path(query_file).read_text()
-        sentence_df = get_sentences.for_summary(
-            conn_str,
-            query=query,
-            device=device,
-            limit=token_limit,
-            cache=Path("raw_sentences.json"),
-        )
-        sentence_df.write_json(cached_sentences)
+        print("The path to the prepared sentences doesn't seem to exist..?")
 
     if dry_run:
         print("Not running by request, exiting early")
         return
     ids_done = 0
-    for idx, row in tqdm(
-        enumerate(
-            sentence_df.filter(
-                pl.col("selected_sentences").list.lengths().gt(min_sentences)
-            ).iter_rows(named=True)
-        )
-    ):
+    for idx, row in tqdm(enumerate(sentence_df.iter_rows(named=True))):
         if start_idx > idx:
             continue
         context = build_context(row["selected_sentences"], row["selected_pmcids"])
@@ -148,33 +148,24 @@ def main(
         elif ids_done == generation_limit:
             break
 
+        ## Checkpoint every N RNAs, default to 50 which should be about 20 minutes
+        if (
+            len(sentence_df) > checkpoint_interval
+            and ids_done % checkpoint_interval == 0
+        ):
+            write_output(
+                data_for_db,
+                output_basename,
+                write_json,
+                write_parquet,
+            )
+
+    write_output(
+        data_for_db, output_basename, write_db, write_json, write_parquet, conn_str
+    )
     if write_db:
         ## Insert the results into my database
         insert_rna_data(data_for_db, conn_str)
-
-    if write_json:
-        ## Write the results to parquet
-        df = pl.DataFrame(data_for_db)
-        df.write_ndjson("summary_data.ndjson")
-
-    if write_parquet:
-        ## Write the results to parquet
-        df = pl.DataFrame(data_for_db)
-        df.write_parquet("summary_data.parquet")
-
-    if write_gdocs:
-        ## Create the googledocs
-        documents = {}
-        for entry in data_for_db:
-            documents[entry["ent_id"]] = create_summary_doc(
-                entry["ent_id"],
-                entry["context"],
-                entry["summary"],
-                system_instruction + context_padding + revision_context,
-            )
-
-        ## Create the spreadsheet
-        create_id_link_spreadsheet(documents)
 
 
 if __name__ == "__main__":
