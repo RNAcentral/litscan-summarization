@@ -7,9 +7,10 @@ import polars as pl
 import torch
 from datasets import load_dataset
 from torch import nn
+from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import AdamW, AutoConfig, AutoModel, AutoTokenizer, get_scheduler
+from transformers import AutoConfig, AutoModel, AutoTokenizer, get_scheduler
 from transformers.modeling_outputs import TokenClassifierOutput
 
 from evaluate import load as load_metric
