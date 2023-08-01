@@ -181,7 +181,7 @@ def main(
         eval_accs.append(metric_eval.compute()["accuracy"])
 
     train_steps = np.arange(len(train_losses))
-    eval_steps = np.arange(len(eval_losses))
+    eval_steps = np.arange(len(eval_losses)) * num_training_steps
 
     plt.plot(train_steps, train_losses, label="Train")
     plt.plot(eval_steps, eval_losses, label="Eval")
