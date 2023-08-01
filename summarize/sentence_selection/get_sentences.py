@@ -53,6 +53,7 @@ def tokenize_and_count(sentence_df: pl.DataFrame, limit: ty.Optional[int] = 3072
 def for_summary(
     conn_str: str,
     query: str,
+    primary_id: str,
     cache: Path,
     device: ty.Optional[str] = "cpu:0",
     limit: ty.Optional[int] = 3072,
@@ -65,6 +66,9 @@ def for_summary(
             ## No sentences to summarize
             return None
 
+        sentence_df = sentence_df.with_columns(
+            pl.lit(primary_id).alias("primary_id")
+        )
         sentence_df = tokenize_and_count(sentence_df, limit)
         if cache is not None:
             sentence_df.write_json(cache)

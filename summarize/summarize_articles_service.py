@@ -54,13 +54,14 @@ def poll_litscan_job():
             res = [r[0] for r in res]
 
             # get related ids to summarize
-            cur.execute(query_jobs.format(res[0]))
+            primary_id = res[0]
+            cur.execute(query_jobs.format(primary_id))
             get_jobs = cur.fetchall()
             jobs = [job[0] for job in get_jobs]
 
             if jobs:
                 logging.info(f"Summarizing the following jobs: {jobs}")
-                run_summary_job(jobs, conn_str)
+                run_summary_job(jobs, conn_str, primary_id)
             else:
                 query_update = """
                 UPDATE litscan_job 
@@ -73,7 +74,7 @@ def poll_litscan_job():
         sleep(30)
 
 
-def run_summary_job(job_ids, conn_str):
+def run_summary_job(job_ids, conn_str, primary_id):
     """
     Read the polling query, which is slightly different from the cli one - it doesn't have a blacklist
     and has space for the tuple of IDs we got from polling the tables
@@ -89,6 +90,7 @@ def run_summary_job(job_ids, conn_str):
     sentence_df = get_sentences.for_summary(
         conn_str,
         query=query,
+        primary_id=primary_id,
         device=os.getenv("DEVICE", "cpu:0"),
         limit=int(os.getenv("TOKEN_LIMIT", 2560)),
         cache=None,
