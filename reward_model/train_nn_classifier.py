@@ -1,11 +1,15 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn.functional as F
-from datasets import load_dataset, load_metric
+from datasets import load_dataset
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import AdamW, AutoConfig, AutoModel, AutoTokenizer, get_scheduler
 from transformers.modeling_outputs import TokenClassifierOutput
+
+from evaluate import load as load_metric
 
 _pretrained_model = "allenai/longformer-base-4096"
 max_seq_length = 4096
@@ -25,9 +29,9 @@ class SiameseSummaryEvaluator(nn.Module):
                 device="mps",
             ),
         )
-        self.mix = nn.Linear(768, 768)
+        self.mix = nn.Linear(2 * 768, 512)
         self.dropout = nn.Dropout(0.1)
-        self.classifier = nn.Linear(768, num_classes)
+        self.classifier = nn.Linear(512, num_classes)
         self.num_classes = num_classes
 
     def forward(
@@ -48,12 +52,13 @@ class SiameseSummaryEvaluator(nn.Module):
             )
 
         ## Get the second to last hidden layer (see https://www.kaggle.com/code/rhtsingh/on-stability-of-few-sample-transformer-fine-tuning)
-        summ_vec = summ_output[2][-2]
-        ctx_vec = ctx_output[2][-2]
+        summ_vec = summ_output[2][-2][:, 0, :]
+        ctx_vec = ctx_output[2][-2][:, 0, :]
+        ## The last set of indices should be getting the embedding of the CLS token
 
         ## Mix the vectors
         mixed = self.mix(torch.cat((summ_vec, ctx_vec), dim=1))
-        mixed = self.dropout(torch.max(mixed, dim=1)[0])
+        # mixed = self.dropout(torch.max(mixed, dim=1)[0])
 
         logits = self.classifier(mixed)
 
@@ -79,7 +84,7 @@ def tokenize(x):
     x["summ_attention_mask"] = summ_tokenization["attention_mask"]
     x["ctx_input_ids"] = ctx_tokenization["input_ids"]
     x["ctx_attention_mask"] = ctx_tokenization["attention_mask"]
-    x["labels"] = x["feedback"]
+    x["labels"] = x["feedback"] - 1
     return x
 
 
@@ -95,48 +100,6 @@ summary_rating_data = summary_rating_data.remove_columns(
     ["summary", "context", "summary_id", "feedback"]
 ).with_format("torch")
 
-
-# exit()
-
-
-# train = pl.read_parquet('train_andrew.pq')
-# print(train)
-# summ_texts = train.get_column('summary').to_numpy()[:batch_size].tolist()
-# ctx_texts = train.get_column('context').to_numpy()[:batch_size].tolist()
-
-
-# config = AutoConfig.from_pretrained(_pretrained_model)
-# # configure to output all hidden states as well
-# config.update({'output_hidden_states':True, 'device':'mps'})
-# # model = AutoModel.from_pretrained(_pretrained_model, config=config)
-# tokenizer = AutoTokenizer.from_pretrained(_pretrained_model)
-
-# summ_features = tokenizer.batch_encode_plus(
-#     summ_texts,
-#     max_length=max_seq_length,
-#     padding='max_length',
-#     truncation=True,
-#     add_special_tokens=True,
-#     return_attention_mask=True,
-#     return_tensors='pt'
-# )
-
-# ctx_features = tokenizer.batch_encode_plus(
-#     ctx_texts,
-#     max_length=max_seq_length,
-#     padding='max_length',
-#     truncation=True,
-#     add_special_tokens=True,
-#     return_attention_mask=True,
-#     return_tensors='pt'
-# )
-
-# train = train.with_columns([pl.Series('summ_input_ids', summ_features['input_ids'].numpy()).alias("summ_input_ids"), pl.Series('summ_attention_mask', summ_features['attention_mask'].numpy()),
-#                              pl.Series('ctx_input_ids', ctx_features['input_ids'].numpy()), pl.Series('ctx_attention_mask', ctx_features['attention_mask'].numpy())])
-
-# print(pl.DataFrame({'input_ids': ctx_features['input_ids'].numpy(), 'attention_mask': ctx_features['attention_mask'].numpy()}))
-
-# exit()
 
 model = SiameseSummaryEvaluator(_pretrained_model)
 
@@ -167,8 +130,11 @@ lr_scheduler = get_scheduler(
     num_training_steps=num_training_steps,
 )
 
-metric = load_metric("accuracy")
+metric_train = load_metric("accuracy", average="weighted")
+metric_eval = load_metric("accuracy", average="weighted")
 
+train_losses = []
+eval_losses = []
 
 model.to(device)
 for epoch in range(num_epochs):
@@ -178,21 +144,34 @@ for epoch in range(num_epochs):
         outputs = model(**batch)
         loss = outputs.loss
         loss.backward()
+        train_losses.append(loss.item())
 
         optimizer.step()
         lr_scheduler.step()
         optimizer.zero_grad()
+        predictions = torch.argmax(outputs.logits, dim=-1)
+        metric_train.add_batch(predictions=predictions, references=batch["labels"])
         progress_bar_train.update(1)
-
+    print(metric_train.compute())
     model.eval()
     for batch in eval_dataloader:
         batch = {k: v.to(device) for k, v in batch.items()}
         with torch.no_grad():
             outputs = model(**batch)
 
+        eval_losses.append(outputs.loss.item())
         logits = outputs.logits
         predictions = torch.argmax(logits, dim=-1)
-        metric.add_batch(predictions=predictions, references=batch["labels"])
+        metric_eval.add_batch(predictions=predictions, references=batch["labels"])
         progress_bar_eval.update(1)
 
-    print(metric.compute())
+    print(metric_eval.compute())
+
+
+train_steps = np.arange(len(train_losses))
+eval_steps = np.arange(len(eval_losses))
+
+plt.plot(train_steps, train_losses)
+plt.plot(eval_steps, eval_losses)
+
+plt.show()
