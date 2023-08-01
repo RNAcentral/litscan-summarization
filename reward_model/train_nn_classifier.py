@@ -90,6 +90,7 @@ def tokenize(x, tokenizer, max_seq_length=4096):
 @click.option("--device", default="mps")
 @click.option("--num_epochs", default=3)
 @click.option("--base_lr", default=1e-5)
+@click.option("--weight_decay", default=0.01)
 @click.option("--output_dir", default="output", type=pathlib.Path)
 def main(
     pretrained_model,
@@ -98,6 +99,7 @@ def main(
     device,
     num_epochs,
     base_lr,
+    weight_decay,
     output_dir,
 ):
     config = AutoConfig.from_pretrained(pretrained_model)
@@ -134,7 +136,7 @@ def main(
     progress_bar_train = tqdm(range(num_training_steps))
     progress_bar_eval = tqdm(range(num_epochs * len(eval_dataloader)))
 
-    optimizer = AdamW(model.parameters(), lr=base_lr)
+    optimizer = AdamW(model.parameters(), lr=base_lr, weight_decay=weight_decay)
     lr_scheduler = get_scheduler(
         "linear",
         optimizer=optimizer,
