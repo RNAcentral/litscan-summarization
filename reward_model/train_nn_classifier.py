@@ -68,6 +68,52 @@ class SiameseSummaryEvaluator(nn.Module):
         )  # hidden_states=outputs.hidden_states,attentions=outputs.attentions)
 
 
+class SummaryEvaluator(nn.Module):
+    def __init__(self, base_model, num_classes=5, device="cpu"):
+        super(SummaryEvaluator, self).__init__()
+        self.model = model = AutoModel.from_pretrained(
+            base_model,
+            config=AutoConfig.from_pretrained(
+                base_model,
+                output_attentions=True,
+                output_hidden_states=True,
+                device=device,
+            ),
+        )
+
+        self.dropout = nn.Dropout(0.25)
+        self.classifier = nn.Linear(2 * 768, num_classes)
+        self.num_classes = num_classes
+
+    def forward(
+        self,
+        summ_input_ids,
+        summ_attention_mask,
+        labels=None,
+    ):
+        ## Treat pretrained model as frozen
+        with torch.no_grad():
+            summ_output = self.model(
+                input_ids=summ_input_ids, attention_mask=summ_attention_mask
+            )
+
+        ## Get the second to last hidden layer (see https://www.kaggle.com/code/rhtsingh/on-stability-of-few-sample-transformer-fine-tuning)
+        summ_vec = summ_output[2][-2][:, 0, :]
+        ## The last set of indices should be getting the embedding of the CLS token - i.e. sentence level?
+
+        logits = self.classifier(self.dropout(summ_vec))
+
+        loss = None
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, self.num_classes), labels.view(-1))
+
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits,
+        )  # hidden_states=outputs.hidden_states,attentions=outputs.attentions)
+
+
 def tokenize(x, tokenizer, max_seq_length=4096):
     summ_tokenization = tokenizer(
         x["summary"], truncation=True, padding="max_length", max_length=max_seq_length
@@ -92,6 +138,7 @@ def tokenize(x, tokenizer, max_seq_length=4096):
 @click.option("--base_lr", default=1e-5)
 @click.option("--weight_decay", default=0.01)
 @click.option("--output_dir", default="output", type=pathlib.Path)
+@click.option("--siamese_model", default=False, is_flag=True)
 def main(
     pretrained_model,
     max_seq_length,
@@ -101,6 +148,7 @@ def main(
     base_lr,
     weight_decay,
     output_dir,
+    siamese_model,
 ):
     config = AutoConfig.from_pretrained(pretrained_model)
 
@@ -112,11 +160,24 @@ def main(
     summary_rating_data = summary_rating_data.map(
         lambda x: tokenize(x, tokenizer, max_seq_length)
     )
-    summary_rating_data = summary_rating_data.remove_columns(
-        ["summary", "context", "summary_id", "feedback"]
-    ).with_format("torch")
+    if siamese_model:
+        summary_rating_data = summary_rating_data.remove_columns(
+            ["summary", "context", "summary_id", "feedback"]
+        ).with_format("torch")
 
-    model = SiameseSummaryEvaluator(pretrained_model)
+        model = SiameseSummaryEvaluator(pretrained_model)
+    else:
+        summary_rating_data = summary_rating_data.remove_columns(
+            [
+                "summary",
+                "context",
+                "summary_id",
+                "feedback",
+                "ctx_input_ids",
+                "ctx_attention_mask",
+            ]
+        ).with_format("torch")
+        model = SummaryEvaluator(pretrained_model)
 
     total_params = sum(
         dict((p.data_ptr(), p.numel()) for p in model.parameters()).values()
