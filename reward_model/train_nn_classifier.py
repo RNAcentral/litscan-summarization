@@ -82,7 +82,7 @@ class SummaryEvaluator(nn.Module):
         )
 
         self.dropout = nn.Dropout(0.25)
-        self.classifier = nn.Linear(2 * 768, num_classes)
+        self.classifier = nn.Linear(768, num_classes)
         self.num_classes = num_classes
 
     def forward(
