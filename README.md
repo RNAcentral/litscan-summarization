@@ -36,11 +36,11 @@ To launch, run `docker compose -f docker-compose-mac.yml up --build` (substitute
 
 Once everything is up and running, you should see messages about polling for new jobs. This mean's you're ready to go.
 
-#### Submit jobs
+#### Submit a single job
 
 To submit an ID for processing, you do
 ```
-curl -H "Content-Type:application/json" -d "{\"id\": \"bta-mir-16a\"}" localhost:8080/api/submit-job
+curl -H "Content-Type:application/json" -d "{\"id\": \"bta-mir-16a\"}" localhost:8080/api/multiple-jobs
 ```
 which sends the request to the LitScan API. LitScan will then search for articles mentioning the ID
 (in this example `bta-mir-16a`) and put the results in the database, from where LitSumm will pick them up,
@@ -70,32 +70,46 @@ turquoise module in SFO treatment [PMC6164576].
 Be aware that **some IDs can have a huge amount of articles to parse, which can take a long time to run**.
 To avoid this problem, you can set a maximum number of articles to be searched by LitScan as follows
 ```
-curl -H "Content-Type:application/json" -d "{\"id\": \"NEAT1\", \"search_limit\": 100}" localhost:8080/api/submit-job
+curl -H "Content-Type:application/json" -d "{\"id\": \"NEAT1\", \"search_limit\": 100}" localhost:8080/api/multiple-jobs
 ```
 
 Another important detail about LitScan is that **by default the following query is used**
 ```
-query=("NEAT1" AND ("rna" OR "mrna" OR "ncrna" OR "lncrna" OR "rrna" OR "sncrna"))
+query=("ID" AND ("rna" OR "mrna" OR "ncrna" OR "lncrna" OR "rrna" OR "sncrna"))
 ```
 
 Where:
-1. `"NEAT1"` is the string used in the search
+1. `"ID"` is the string used in the search
 2. `("rna" OR "mrna" OR "ncrna" OR "lncrna" OR "rrna" OR "sncrna")` is used to filter out possible false positives
 
 If you want to run a non-RNA related job, use the `query` parameter to change the query
 ```
-curl -H "Content-Type:application/json" -d "{\"id\": \"P2_Phage_GpR\", \"query\": \"('protein' AND 'domain')\"}" localhost:8080/api/submit-job
+curl -H "Content-Type:application/json" -d "{\"id\": \"P2_Phage_GpR\", \"query\": \"('protein' AND 'domain')\"}" localhost:8080/api/multiple-jobs
 ```
 
-Or if you only want to use the id, run
+Or if you don't want to use a query to filter out potential false positives, run
 ```
-curl -H "Content-Type:application/json" -d "{\"id\": \"P2_Phage_GpR\", \"query\": \"\"}" localhost:8080/api/submit-job
+curl -H "Content-Type:application/json" -d "{\"id\": \"P2_Phage_GpR\", \"query\": \"\"}" localhost:8080/api/multiple-jobs
 ```
 
 To rescan an id and create a new summary, use the `rescan` parameter
 ```
-curl -H "Content-Type:application/json" -d "{\"id\": \"bta-mir-16a\", \"rescan\": true}" localhost:8080/api/submit-job
+curl -H "Content-Type:application/json" -d "{\"id\": \"bta-mir-16a\", \"rescan\": true}" localhost:8080/api/multiple-jobs
 ```
+
+#### Submit multiple jobs
+
+To submit multiple IDs for processing, you do
+```
+curl -H "Content-Type:application/json" -d "{\"id\": \"RF00016\", \"job_list\": [\"SNORD14\", \"U14A\", \"U14 snoRNA\"], \"search_limit\": 20}" localhost:8080/api/multiple-jobs
+```
+which sends the request to the LitScan API. LitScan will create a job for each ID (in this example `RF00016`, 
+`SNORD14`, `U14A` and `U14 snoRNA`) and then search for articles mentioning the ID. Results will be saved in the 
+database, from where LitSumm will pick them up, run the summarization chain and place the summary into the 
+database's `litsumm_summaries` table.
+
+When submitting multiple IDs, use the `id` field for submitting the accession and the `job_list` field for other 
+names/synonyms of this accession. The summary will be created based on the `id` and `job_list` sentences.
 
 ### Visualising the results
 
@@ -136,7 +150,7 @@ To submit your feedback, click submit. To move to another summary, click next or
 
 **The tool will store some cookies on your browser**
 
-There are two: one a UUID that uniquely, but anonymously, identifies you so we can disambiguate feedback based on user; and another that simply stores a comma separated list of the IDs you have seen so we can pick up where you left off and navigate forward and back easily.
+There are two: a name, so we can disambiguate feedback based on user; and another that simply stores a comma separated list of the IDs you have seen, so we can pick up where you left off and navigate forward and back easily.
 
 Feedback is stored in the same database as everything else, in the `litsumm_feedback` table.
 
