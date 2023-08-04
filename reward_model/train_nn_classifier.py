@@ -212,7 +212,7 @@ def main(
     eval_losses = []
     train_accs = []
     eval_accs = []
-
+    prev_max_acc = 0.0
     model.to(device)
     for epoch in range(num_epochs):
         model.train()
@@ -243,6 +243,10 @@ def main(
             progress_bar_eval.update(1)
 
         eval_accs.append(metric_eval.compute()["accuracy"])
+        max_acc = np.max(eval_accs)
+        if max_acc > prev_max_acc:
+            prev_max_acc = max_acc
+            torch.save(model, output_dir / f"model_ep{epoch}_ac{max_acc}.pt")
 
     train_steps = np.arange(len(train_losses))
     eval_steps = np.arange(len(eval_losses)) * len(train_losses) / len(eval_losses)
