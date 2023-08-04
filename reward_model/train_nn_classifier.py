@@ -201,7 +201,7 @@ def main(
     lr_scheduler = get_scheduler(
         "linear",
         optimizer=optimizer,
-        num_warmup_steps=0,
+        num_warmup_steps=int(0.03 * num_training_steps),
         num_training_steps=num_training_steps,
     )
 
