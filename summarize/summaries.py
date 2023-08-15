@@ -136,6 +136,8 @@ def generate_summary(
     )
     total_tokens = 0
     cost = 0
+    revision_cost = 0
+    revision_tokens = 0
     first_ref = pmcid_pattern.findall(context)[0]
     with get_openai_callback() as cb:
         summary = summary_chain.run(
@@ -175,8 +177,10 @@ def generate_summary(
         rescue_prompts.append(prompt)
         validation = validate_summary(summary, context)
         attempt += 1
-    cost += revision_cost
-    total_tokens += revision_tokens
+        cost += revision_cost
+        total_tokens += revision_tokens
+    revision_cost = 0
+    revision_tokens = 0
     print(cost, total_tokens)
     if evaluate_truth:
         ## Check to see if the summary makes factual sense
@@ -239,8 +243,8 @@ def generate_summary(
                 rescue_prompts.append(prompt)
                 attempt += 1
                 validation = validate_summary(summary, context)
-            cost += revision_cost
-            total_tokens += revision_tokens
+                cost += revision_cost
+                total_tokens += revision_tokens
             print(cost, total_tokens)
 
     return (
