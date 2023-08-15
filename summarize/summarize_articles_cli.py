@@ -40,7 +40,6 @@ def write_output(data_for_db, output_basename, write_json, write_parquet):
 @click.option("--write_db", default=False, is_flag=True)
 @click.option("--write_json", default=False, is_flag=True)
 @click.option("--write_parquet", default=False, is_flag=True)
-@click.option("--write_gdocs", default=False, is_flag=True)
 @click.option("--generation_limit", default=-1)
 @click.option("--start_idx", default=0)
 @click.option("--dry_run", default=False, is_flag=True)
@@ -83,7 +82,10 @@ def main(
     data_for_db = []
 
     if Path(cached_sentences).exists():
-        sentence_df = pl.read_json(cached_sentences)
+        if cached_sentences.endswith(".parquet") or cached_sentences.endswith(".pq"):
+            sentence_df = pl.read_parquet(cached_sentences)
+        elif cached_sentences.endswith(".json"):
+            sentence_df = pl.read_json(cached_sentences)
     else:
         print("The path to the prepared sentences doesn't seem to exist..?")
 
@@ -141,6 +143,7 @@ def main(
                 "truthful": truthful,
                 "consistency_check_result": veracity_check_result,
                 "selection_method": row["method"],
+                "urs_taxid": row["urs_taxid"],
             }
         )
         if generation_limit < 0:
@@ -160,9 +163,7 @@ def main(
                 write_parquet,
             )
 
-    write_output(
-        data_for_db, output_basename, write_db, write_json, write_parquet, conn_str
-    )
+    write_output(data_for_db, output_basename, write_json, write_parquet)
     if write_db:
         ## Insert the results into my database
         insert_rna_data(data_for_db, conn_str)
