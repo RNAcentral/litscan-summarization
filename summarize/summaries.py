@@ -18,8 +18,6 @@ def validation_revise_summary(
     summary: str,
     context: str,
     validation: dict,
-    total_tokens,
-    cost,
     model_name: str,
     ent_id: str,
     first_ref: str,
@@ -86,8 +84,8 @@ def validation_revise_summary(
             ent_id=ent_id, context_str=context, summary=summary, first_ref=first_ref
         )
         print(cb)
-        total_tokens += cb.total_tokens
-        cost += cb.total_cost
+        total_tokens = cb.total_tokens
+        cost = cb.total_cost
 
     return prompt, summary, total_tokens, cost
 
@@ -146,7 +144,7 @@ def generate_summary(
         print(cb)
         total_tokens += cb.total_tokens
         cost += cb.total_cost
-
+    print(cost, total_tokens)
     validation = validate_summary(summary, context)
     problem_summary = False
     attempt = 1
@@ -163,40 +161,11 @@ def generate_summary(
         logging.warning(
             "Summary auto validation failed! Running reference insertion chain to rescue..."
         )
-        # if not validation["adequate"]:
-        #     reference_chain = get_reference_chain(
-        #         get_model(
-        #             model_name,
-        #             {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
-        #             | extra_args,
-        #         ),
-        #         "adequate",
-        #         verbose=True,
-        #     )
-        # elif not validation["real"]:
-        #     reference_chain = get_reference_chain(
-        #         get_model(
-        #             model_name,
-        #             {"temperature": 0.1, "presence_penalty": 0, "frequency_penalty": 0}
-        #             | extra_args,
-        #         ),
-        #         "fake",
-        #         verbose=True,
-        #     )
-        # with get_openai_callback() as cb:
-        #     summary = reference_chain.run(
-        #         ent_id=ent_id, context_str=context, summary=summary, first_ref=first_ref
-        #     )
-        #     print(cb)
-        #     total_tokens += cb.total_tokens
-        #     cost += cb.total_cost
         print(validation)
-        prompt, summary, total_tokens, cost = validation_revise_summary(
+        prompt, summary, revision_tokens, revision_cost = validation_revise_summary(
             summary,
             context,
             validation,
-            total_tokens,
-            cost,
             model_name,
             ent_id,
             first_ref,
@@ -206,7 +175,9 @@ def generate_summary(
         rescue_prompts.append(prompt)
         validation = validate_summary(summary, context)
         attempt += 1
-
+    cost += revision_cost
+    total_tokens += revision_tokens
+    print(cost, total_tokens)
     if evaluate_truth:
         ## Check to see if the summary makes factual sense
         ## First transform the summary into a bulleted list
@@ -250,12 +221,15 @@ def generate_summary(
                 logging.warning(
                     "Summary auto validation failed! Running reference insertion chain to rescue..."
                 )
-                prompt, summary, total_tokens, cost = validation_revise_summary(
+                (
+                    prompt,
+                    summary,
+                    revision_tokens,
+                    revision_cost,
+                ) = validation_revise_summary(
                     summary,
                     context,
                     validation,
-                    total_tokens,
-                    cost,
                     model_name,
                     ent_id,
                     first_ref,
@@ -265,6 +239,9 @@ def generate_summary(
                 rescue_prompts.append(prompt)
                 attempt += 1
                 validation = validate_summary(summary, context)
+            cost += revision_cost
+            total_tokens += revision_tokens
+            print(cost, total_tokens)
 
     return (
         summary,
