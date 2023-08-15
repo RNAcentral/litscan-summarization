@@ -58,6 +58,7 @@ def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
             e["consistency_check_result"],
             e["selection_method"],
             e["rescue_prompts"],
+            e["urs_taxid"],
         )
         for e in data_dict
     ]
@@ -71,14 +72,15 @@ def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
     if len(stored_ids) > 0:
         stored_ids = set([e[0] for e in stored_ids])
         new_ids = set([e["ent_id"].lower() for e in data_dict]) - stored_ids
+        print(new_ids)
         if len(new_ids) > 0:
-            execute_values(cur, fk_insert_query, new_ids)
+            execute_values(cur, fk_insert_query, [(a,) for a in new_ids])
     else:
         execute_values(
             cur, fk_insert_query, [(e["ent_id"].lower(),) for e in data_dict]
         )
 
-    insert_query = "insert into litsumm_summaries (rna_id, context, summary, cost, total_tokens, attempts, problem_summary, truthful, consistency_check_result, selection_method, rescue_prompts) values %s"
+    insert_query = "insert into litsumm_summaries (rna_id, context, summary, cost, total_tokens, attempts, problem_summary, truthful, consistency_check_result, selection_method, rescue_prompts, primary_id) values %s"
     execute_values(cur, insert_query, data, page_size=100)
     conn.commit()
     cur.close()
