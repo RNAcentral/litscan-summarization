@@ -22,7 +22,7 @@ def get_summarizer_prompt() -> ChatPromptTemplate:
         "For example, the first sentence has the reference [{first_ref}]. "
         "Refrences should only be provided at the end of sentences, and MUST follow the style in the context. Do not list references at the end of the summary. "
         "You MUST provide at least one reference per sentence you produce. "
-        "Use only the information in the context given above. "
+        "Use only the information in the context given above. Start your summary with a brief description of {ent_id}, noting its type. "
         "Use 200 words or less."
         "\nSummary:\n"
     )
@@ -60,8 +60,8 @@ def get_inadequate_references_revision_prompt() -> ChatPromptTemplate:
         "The following summary:\n{summary}\n"
         "Does not have enough references. Add the correct references to each sentence, using only references from the following context:"
         "\n{context_str}\n"
-        "References are provided in the context, enclosed in [].\n"
-        "For example, the first sentence has the reference [{first_ref}]. "
+        "References are provided in the context, enclosed in []. "
+        "For example, the first sentence has the reference [{first_ref}].\n"
         "You must use the same format for references in the summary. "
         "Revised Summary: "
     )
