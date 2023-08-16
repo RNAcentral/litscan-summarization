@@ -2,11 +2,9 @@ from pathlib import Path
 
 import click
 import polars as pl
-from sentence_selection import get_sentences
 from tqdm import tqdm
 from utils.context import build_context
 from utils.database import insert_rna_data
-from utils.googledocs import create_id_link_spreadsheet, create_summary_doc
 
 from summaries import generate_summary
 
