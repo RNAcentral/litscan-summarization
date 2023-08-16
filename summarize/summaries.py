@@ -247,6 +247,8 @@ def generate_summary(
                 total_tokens += revision_tokens
             print(cost, total_tokens)
 
+    if len(rescue_prompts) == 0:
+        rescue_prompts.append("N/A")
     return (
         summary,
         cost,
