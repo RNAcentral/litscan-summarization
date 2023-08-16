@@ -90,6 +90,21 @@ def main(
     if dry_run:
         print("Not running by request, exiting early")
         return
+
+    ## Resume form checkpoint
+    done = None
+    if Path(f"{output_basename}.ndjson").exists():
+        done = pl.read_ndjson(f"{output_basename}.ndjson")
+    elif Path(f"{output_basename}.parquet").exists():
+        done = pl.read_parquet(f"{output_basename}.parquet")
+    if done is not None:
+        sentence_df = sentence_df.join(done, on="urs_taxid", how="anti")
+        print(f"Resuming from checkpoint, {len(sentence_df)} RNAs to go")
+
+    if len(sentence_df) == 0:
+        print("No RNAs to summarize, exiting early")
+        return
+
     ids_done = 0
     for idx, row in tqdm(enumerate(sentence_df.iter_rows(named=True))):
         if start_idx > idx:
@@ -144,10 +159,6 @@ def main(
                 "urs_taxid": row["urs_taxid"],
             }
         )
-        if generation_limit < 0:
-            continue
-        elif ids_done == generation_limit:
-            break
 
         ## Checkpoint every N RNAs, default to 50 which should be about 20 minutes
         if (
@@ -160,6 +171,10 @@ def main(
                 write_json,
                 write_parquet,
             )
+        if generation_limit < 0:
+            continue
+        elif ids_done == generation_limit:
+            break
 
     write_output(data_for_db, output_basename, write_json, write_parquet)
     if write_db:
