@@ -16,7 +16,7 @@ def write_output(data_for_db, output_basename, write_json, write_parquet):
         output_loc = Path(f"{output_basename}.ndjson")
         if output_loc.exists():
             existing = pl.read_ndjson(output_loc)
-            df = existing.vstack(df).unique()
+            df = existing.vstack(df).unique("ent_id")
         df.write_ndjson(f"{output_basename}.ndjson")
 
     if write_parquet:
@@ -24,7 +24,7 @@ def write_output(data_for_db, output_basename, write_json, write_parquet):
         output_loc = Path(f"{output_basename}.parquet")
         if output_loc.exists():
             existing = pl.read_parquet(output_loc)
-            df = existing.vstack(df).unique()
+            df = existing.vstack(df).unique("ent_id")
         df.write_parquet(f"{output_basename}.parquet")
 
 
