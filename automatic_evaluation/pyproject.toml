@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "automatic-evaluation"
+version = "0.1.0"
+description = ""
+authors = ["Andrew Green <agreen@ebi.ac.uk>"]
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = "^3.9"
+rouge-score = "^0.1.2"
+langchain = "^0.0.216"
+polars = "^0.18.4"
+matplotlib = "^3.7.1"
+bert-score = "^0.3.13"
+sentence-transformers = "^2.2.2"
+ratelimiter = "^1.2.0.post0"
+seaborn = "^0.12.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
