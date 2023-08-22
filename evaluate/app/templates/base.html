@@ -62,6 +62,12 @@
                         document.cookie = `seen_ids=${parseInt(startID.value)-1}`;
                     }
 
+                    let expand = document.getElementById("expand_context");
+                    if (expand.checked) {
+                        document.cookie = `expand=true`;
+                    } else {
+                        document.cookie = `expand=false`;
+                    }
 
                     let url='{{url_for("present_single_summary")}}';
                     window.location.replace(url);

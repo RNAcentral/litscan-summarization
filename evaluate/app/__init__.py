@@ -117,6 +117,8 @@ def present_single_summary():
     if not user_id or user_id == "":
         resp.set_cookie("name", "anonymous")
 
+    expand_context = request.cookies.get("expand") == "true"
+
     print(seen_ids)
     ## Get maximum ID
     cur.execute("SELECT COUNT(id) FROM litsumm_summaries;")
@@ -173,6 +175,8 @@ def present_single_summary():
         res = cur.fetchone()
         prev_feedback = res[0] if res is not None else None
         app.logger.debug(rna_id)
+        if expand_context:
+            context = context.replace("].", "].\n\n")
         resp = make_response(
             render_template(
                 "single_summary.html",
