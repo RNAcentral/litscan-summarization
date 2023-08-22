@@ -4,6 +4,11 @@
 {% block content %}
 <div class="container-fluid text-wrap">
   <h1 class="text-center">{{ rna_id }}</h1>
+  <div class="container-fluid text-center">
+    <p>Summary ID: {{summ_id}}</p>
+    <p>Done {{curr_summ_id}}/{{N}} </p>
+    <p>Previous rating: {{previous}}</p>
+  </div>
 </div>
 <div class="accordion" id="contextDisplay">
 <div class="accordion-item">
@@ -13,7 +18,7 @@
     </button>
   </h2>
   <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#contextDisplay">
-    <div class="accordion-body">
+    <div class="accordion-body" style="white-space: pre-line;">
       {{ context }}
     </div>
   </div>
