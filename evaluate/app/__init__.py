@@ -112,6 +112,11 @@ def present_single_summary():
         seen_ids = []
     else:
         seen_ids = [int(i) for i in request.cookies.get("seen_ids").split(" ")]
+
+    user_id = request.cookies.get("name")
+    if not user_id or user_id == "":
+        resp.set_cookie("name", "anonymous")
+
     print(seen_ids)
     ## Get maximum ID
     cur.execute("SELECT COUNT(id) FROM litsumm_summaries;")
@@ -160,8 +165,13 @@ def present_single_summary():
             veracity_result,
             selection_method,
             rescue_prompts,
+            primary_id,
         ) = cur.fetchone()
 
+        PREV_QUERY = f"SELECT feedback FROM litsumm_feedback_single WHERE summary_id = {selected} AND user_id = '{user_id}';"
+        cur.execute(PREV_QUERY)
+        res = cur.fetchone()
+        prev_feedback = res[0] if res is not None else None
         app.logger.debug(rna_id)
         resp = make_response(
             render_template(
@@ -170,14 +180,13 @@ def present_single_summary():
                 rna_id=rna_id,
                 context=context,
                 summ_id=summ_id,
+                curr_summ_id=selected - first_id,
+                N=N,
+                previous=prev_feedback,
             )
         )
 
         resp.set_cookie("seen_ids", " ".join([str(i) for i in seen_ids]))
-
-    user_id = request.cookies.get("name")
-    if not user_id or user_id == "":
-        resp.set_cookie("name", "anonymous")
 
     return resp
 

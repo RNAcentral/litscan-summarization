@@ -55,6 +55,14 @@
                     let name = document.getElementById("name");
                     document.cookie = `name=${name.value}`;
 
+                    let startID = document.getElementById("startID");
+                    if (startID.value.length > 0) {
+                        console.log(startID.value);
+                        console.log(`seen_ids=${parseInt(startID.value)-1}`)
+                        document.cookie = `seen_ids=${parseInt(startID.value)-1}`;
+                    }
+
+
                     let url='{{url_for("present_single_summary")}}';
                     window.location.replace(url);
                 }
