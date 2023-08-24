@@ -8,8 +8,9 @@ model = "allenai/longformer-base-4096"
 
 
 def calculate_bert_score(row, device, batch_size):
-    contexts = row["context"]
-    summaries = row["summary"]
+    contexts = row.get_column("context").to_numpy()
+    summaries = row.get_column("summary").to_numpy()
+    print(contexts)
     contexts = [c.strip() for c in contexts]
     summaries = [s.strip() for s in summaries]
     P, R, F1 = score(
@@ -21,7 +22,12 @@ def calculate_bert_score(row, device, batch_size):
         device=device,
         batch_size=batch_size,
     )
-    return {"precision": P, "recall": R, "f1": F1}
+    return {
+        "ent_id": row.get_column("ent_id"),
+        "precision": pl.Series(P.numpy()),
+        "recall": pl.Series(R.numpy()),
+        "f1": pl.Series(F1.numpy()),
+    }
 
 
 @click.command()
@@ -32,13 +38,13 @@ def calculate_bert_score(row, device, batch_size):
 def main(input_file, output_file, device, batch_size):
     data = pl.read_parquet(input_file)
     print(data)
-    data = data.with_columns(
-        result=pl.struct(["context", "summary"]).apply(
-            lambda x: calculate_bert_score(x, device, batch_size)
+    result = pl.DataFrame(
+        calculate_bert_score(
+            data.select(["ent_id", "context", "summary"]), device, batch_size
         )
-    ).unnest("result")
-
-    data.write_parquet(output_file)
+    )
+    data = data.join(result, on="ent_id")
+    print(data)
 
 
 if __name__ == "__main__":
