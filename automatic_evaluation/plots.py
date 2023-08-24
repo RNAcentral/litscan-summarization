@@ -8,6 +8,7 @@ import obonet
 import pandas as pd
 import polars as pl
 import seaborn as sns
+from scipy.stats import spearmanr
 from sklearn.metrics import cohen_kappa_score
 
 
@@ -113,6 +114,12 @@ def scatterFilter(x, y, **kwargs):
     default=False,
     help="Plot RNA type distribtion",
 )
+@click.option(
+    "--feedback_correlation",
+    is_flag=True,
+    default=False,
+    help="Plot correlation between feedback ratings",
+)
 def main(
     output_path,
     feedback_pair_grid,
@@ -123,6 +130,7 @@ def main(
     rouge_histplot,
     rouge_histplot_fb,
     rna_type_distribution,
+    feedback_correlation,
 ):
     output_path = Path(output_path)
 
@@ -149,9 +157,14 @@ def main(
         .select("rna_id")
     )
 
-    rouge_data_fb = fb_data.melt(
-        id_vars="rna_id", value_vars=["rouge1", "rouge2", "rougeL"]
-    ).rename({"variable": "rouge-type", "value": "rouge"})
+    rouge_data_fb = (
+        fb_data.melt(id_vars="rna_id", value_vars=["rouge1", "rouge2", "rougeL"])
+        .rename({"variable": "rouge-type", "value": "rouge"})
+        .join(fb_data, on="rna_id")
+        .select(["rna_id", "rouge-type", "rouge", "feedback", "user_id"])
+        .filter(pl.col("user_id").is_in(["Rater_0", "Rater_1", "Rater_2"]))
+    )
+
     rating_data_fb = (
         fb_data.with_columns(
             pl.struct(["user_id", "feedback"])
@@ -165,7 +178,7 @@ def main(
 
     # rating_data_fb = fb_data.groupby("rna_id").agg([pl.col("user_id"), pl.col("feedback")]).melt(id_vars='rna_id', value_vars=["user_id", "feedback"]).rename({"variable": "rater", "value": "rating"})
     # .apply(lambda x: x.with_columns(pl.struct(["user_id", "feedback"]).apply(lambda y: {y['user_id']: y["feedback"]}).alias("result")).unnest("result"))
-    print(rating_data_fb)
+    print(rouge_data_fb)
 
     if rna_type_distribution:
         rna_type_data = pl.read_parquet("../staging_area/selected_sentences.parquet")
@@ -209,19 +222,6 @@ def main(
 
         plt.xlabel("ROUGE score")
         plt.legend(loc="upper right")
-        plt.show()
-
-    if rouge_histplot:
-        sns.histplot(
-            rouge_data, x="rouge", hue="rouge-type", common_norm=True, element="step"
-        )
-
-        if rouge_histplot_fb:
-            sns.histplot(fb_data, x="rouge1", label="ROUGE-1", common_norm=True)
-            sns.histplot(fb_data, x="rouge2", label="ROUGE-2", common_norm=True)
-            sns.histplot(fb_data, x="rougeL", label="ROUGE-L", common_norm=True)
-
-        plt.xlabel("ROUGE score")
         plt.show()
 
     if rouge_histplot:
@@ -286,7 +286,45 @@ def main(
         sns.barplot(counts.to_pandas(), x="count", y="simple_type")
         plt.ylabel("")
         plt.tight_layout()
-        # plt.show()
+        plt.savefig(output_path / "RNA_type_distribution.png")
+
+    if feedback_correlation:
+        g = sns.FacetGrid(
+            rouge_data_fb.to_pandas(),
+            col="rouge-type",
+            row="user_id",
+            row_order=["Rater_0", "Rater_1", "Rater_2"],
+            col_order=["rouge1", "rouge2", "rougeL"],
+            margin_titles=True,
+        )
+        g.map(plt.scatter, "rouge", "feedback")
+        g.set_axis_labels("ROUGE score", "Feedback rating")
+        g.set(ylim=(0.5, 6))
+        g.set_titles(col_template="{col_name}", row_template="{row_name}")
+
+        for (row_val, col_val), ax in g.axes_dict.items():
+            print(row_val, col_val)
+            corr_data = (
+                rouge_data_fb.filter(pl.col("rouge-type").eq(col_val))
+                .filter(pl.col("user_id").eq(row_val))
+                .unique(["rna_id", "user_id"])
+                .select(["rouge", "feedback"])
+            )
+            fb = corr_data.get_column("feedback").to_numpy()
+            rouge = corr_data.get_column("rouge").to_numpy()
+            corr_obj = spearmanr(rouge, fb)
+            print(corr_obj.correlation)
+            ax.text(
+                0.1,
+                5.5,
+                r"$\rho$ = {}, p = {}".format(
+                    round(corr_obj.correlation, 2), round(corr_obj.pvalue, 2)
+                ),
+            )
+
+        g.tight_layout()
+        plt.savefig(output_path / "rouge_feedback_correlation.png")
+        plt.show()
 
 
 if __name__ == "__main__":
