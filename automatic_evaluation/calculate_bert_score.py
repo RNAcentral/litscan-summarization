@@ -44,7 +44,8 @@ def main(input_file, output_file, device, batch_size):
         )
     )
     data = data.join(result, on="ent_id")
-    print(data)
+
+    data.write_parquet(output_file)
 
 
 if __name__ == "__main__":
