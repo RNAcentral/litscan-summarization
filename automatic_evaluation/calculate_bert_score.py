@@ -8,7 +8,8 @@ model = "allenai/longformer-base-4096"
 
 
 def calculate_bert_score(row, device, batch_size):
-    row.get_column("context").to_numpy(), row.get_column("summary").to_numpy()
+    contexts = row["context"]
+    summaries = row["summary"]
     contexts = [c.strip() for c in contexts]
     summaries = [s.strip() for s in summaries]
     P, R, F1 = score(
