@@ -201,7 +201,7 @@ def main(
             predictions = torch.argmax(outputs.logits, dim=-1)
             metric_train.add_batch(predictions=predictions, references=batch["labels"])
             progress_bar_train.update(1)
-        train_accs.append(metric_train.compute()["rmse"])
+        train_accs.append(metric_train.compute()["mse"])
         model.eval()
         for batch in eval_dataloader:
             batch = {k: v.to(device) for k, v in batch.items()}
@@ -214,7 +214,7 @@ def main(
             metric_eval.add_batch(predictions=predictions, references=batch["labels"])
             progress_bar_eval.update(1)
 
-        eval_accs.append(metric_eval.compute()["rmse"])
+        eval_accs.append(metric_eval.compute()["mse"])
         max_acc = np.max(eval_accs)
         if max_acc > prev_max_acc:
             prev_max_acc = max_acc
