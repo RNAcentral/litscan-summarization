@@ -58,8 +58,8 @@ class PairwiseSummaryEvaluator(nn.Module):
 
         loss = None
         if labels is not None:
-            loss_fct = nn.MSELoss()
-            loss = loss_fct(logits.view(-1, 1), labels.view(-1, 1))
+            loss_fct = nn.CrossEntropyLoss(weight=self.weights)
+            loss = loss_fct(logits.view(-1, self.num_classes), labels.view(-1))
 
         return TokenClassifierOutput(
             loss=loss,
@@ -76,7 +76,7 @@ def tokenize(x, tokenizer, max_seq_length=2048):
     )
     x["input_ids"] = tokenization["input_ids"]
     x["attention_mask"] = tokenization["attention_mask"]
-    x["labels"] = float(x["label"])  # - 1
+    x["labels"] = x["label"]  # - 1
     return x
 
 
@@ -177,8 +177,8 @@ def main(
         num_training_steps=num_training_steps,
     )
 
-    metric_train = load_metric("mse")
-    metric_eval = load_metric("mse")
+    metric_train = load_metric("acuracy")
+    metric_eval = load_metric("accuracy")
 
     train_losses = []
     eval_losses = []
@@ -202,7 +202,7 @@ def main(
             predictions = torch.argmax(outputs.logits, dim=-1)
             metric_train.add_batch(predictions=predictions, references=batch["labels"])
             progress_bar_train.update(1)
-        train_accs.append(metric_train.compute()["mse"])
+        train_accs.append(metric_train.compute()["accuracy"])
         model.eval()
         for batch in eval_dataloader:
             batch = {k: v.to(device) for k, v in batch.items()}
@@ -215,7 +215,7 @@ def main(
             metric_eval.add_batch(predictions=predictions, references=batch["labels"])
             progress_bar_eval.update(1)
 
-        eval_accs.append(metric_eval.compute()["mse"])
+        eval_accs.append(metric_eval.compute()["accuracy"])
         max_acc = np.max(eval_accs)
         if max_acc > prev_max_acc:
             prev_max_acc = max_acc
