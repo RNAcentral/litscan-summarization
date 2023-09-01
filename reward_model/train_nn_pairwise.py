@@ -185,6 +185,7 @@ def main(
     train_accs = []
     eval_accs = []
     prev_max_acc = 0.0
+    model.half()
     model.to(device)
     for epoch in range(num_epochs):
         model.train()
