@@ -113,12 +113,12 @@ def main(
     model = load_model(model_path, device)
     data = pl.read_parquet(summary_data)
     print(data)
-    data = data.filter(pl.col("user_id").eq("Nancy") & pl.col("summary_id").gt(300))
+    # data = data.filter(pl.col("user_id").eq("Nancy") & pl.col("summary_id").gt(300))
     data = data.select(
         [
             "summary",
-            "feedback",
-            "summary_id",
+            "urs_taxid",
+            "ent_id",
         ]
     ).unique()
 
