@@ -106,36 +106,50 @@ def compare_summaries(model, tokenizer, summary_1, summary_2, device="cpu"):
 @click.option("--pretrained_model", default="allenai/longformer-base-4096")
 @click.option("--device", default="mps")
 @click.option("--output", default="output", type=pathlib.Path)
+@click.option("--just_sort", is_flag=True, default=False)
 def main(
     summary_data,
     model_path,
     pretrained_model,
     device,
     output,
+    just_sort,
 ):
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model)
     model = load_model(model_path, device)
     data = pl.read_parquet(summary_data)
     print(data)
 
-    data = data.with_columns(
-        new_better=pl.col("new_feedback").gt(pl.col("old_feedback"))
-    )
+    if just_sort:
+        ## Convert to summary collection, use sort function, then convert back
+        summary_collection = SummaryCollection(data)
+        summary_collection.sort(
+            lambda x, y: compare_summaries(model, tokenizer, x, y, device)
+        )
+        data = summary_collection.to_dataframe()
+        data.write_parquet(output)
 
-    data = data.with_columns(
-        ml_comparison=pl.struct("old_summary", "new_summary").apply(
-            lambda x: compare_summaries(
-                model, tokenizer, x["old_summary"], x["new_summary"], device
+    else:
+        data = data.with_columns(
+            new_better=pl.col("new_feedback").gt(pl.col("old_feedback"))
+        )
+
+        data = data.with_columns(
+            ml_comparison=pl.struct("old_summary", "new_summary").apply(
+                lambda x: compare_summaries(
+                    model, tokenizer, x["old_summary"], x["new_summary"], device
+                )
             )
         )
-    )
 
-    print(data)
-    print(data.select(pl.col("new_better").sum(), pl.col("ml_comparison").sum()))
+        print(data)
+        print(data.select(pl.col("new_better").sum(), pl.col("ml_comparison").sum()))
 
-    cm = confusion_matrix(data["new_better"].to_list(), data["ml_comparison"].to_list())
-    cm_display = ConfusionMatrixDisplay(cm).plot()
-    plt.show()
+        cm = confusion_matrix(
+            data["new_better"].to_list(), data["ml_comparison"].to_list()
+        )
+        cm_display = ConfusionMatrixDisplay(cm).plot()
+        plt.show()
 
     exit()
     data = data.filter(pl.col("user_id").eq("Nancy") & pl.col("summary_id").gt(300))
@@ -146,14 +160,6 @@ def main(
             "summary_id",
         ]
     ).unique()
-
-    ## Convert to summary collection, use sort function, then convert back
-    summary_collection = SummaryCollection(data)
-    summary_collection.sort(
-        lambda x, y: compare_summaries(model, tokenizer, x, y, device)
-    )
-    data = summary_collection.to_dataframe()
-    data.write_parquet(output)
 
 
 def quicksort(a_list, comparison_function):
