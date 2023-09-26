@@ -25,9 +25,9 @@ class SummaryCollection(object):
         """
         Copy eveyrthing out of a dataframe
         """
-        self.summary_ids = dataframe["summary_id"].to_list()
+        self.ent_id = dataframe["ent_id"].to_list()
         self.summaries = dataframe["summary"].to_list()
-        self.feedback = dataframe["feedback"].to_list()
+        self.urs_taxid = dataframe["urs_taxid"].to_list()
 
     def sort(self, comparison_function):
         """
@@ -35,16 +35,16 @@ class SummaryCollection(object):
         """
         self.sorted_summaries = quicksort(self.summaries, comparison_function)
         indices = [self.summaries.index(x) for x in self.sorted_summaries]
-        self.sorted_summary_ids = [self.summary_ids[i] for i in indices]
-        self.sorted_feedback = [self.feedback[i] for i in indices]
+        self.sorted_ent_id = [self.ent_id[i] for i in indices]
+        self.sorted_urs_taxid = [self.urs_taxid[i] for i in indices]
         self.summaries = self.sorted_summaries
 
     def to_dataframe(self):
         return pl.DataFrame(
             {
-                "summary_id": self.summary_ids,
+                "ent_id": self.sorted_ent_id,
                 "summary": self.summaries,
-                "feedback": self.feedback,
+                "urs_taxid": self.sorted_urs_taxid,
             }
         )
 
