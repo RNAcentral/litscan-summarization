@@ -15,6 +15,7 @@ vega = "^4.0.0"
 torch = "^2.0.1"
 datasets = "^2.14.2"
 evaluate = "^0.4.0"
+snorkel = "^0.9.9"
 
 
 [build-system]
