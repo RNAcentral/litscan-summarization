@@ -254,7 +254,9 @@ with visualisation:
         veracity_rescue_prompt = gr.Textbox(label="Veracity Rescue Prompt")
 
     with gr.Row():
-        veracity_output = gr.Textbox(label="Veracity Output")
+        veracity_output = gr.Textbox(
+            label="Veracity Output",
+        )
 
     id_input.submit(
         lambda x: search_db(x, conn_str),
