@@ -10,7 +10,13 @@ from torch import nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import AutoConfig, AutoModel, AutoTokenizer, get_scheduler
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    get_scheduler,
+)
 from transformers.modeling_outputs import TokenClassifierOutput
 
 from evaluate import load as load_metric
@@ -69,7 +75,7 @@ class SiameseSummaryEvaluator(nn.Module):
 
 
 class SummaryEvaluator(nn.Module):
-    def __init__(self, base_model, num_classes=5, device="cpu"):
+    def __init__(self, base_model, num_classes=5, device="cpu", weights=None):
         super(SummaryEvaluator, self).__init__()
         self.model = model = AutoModel.from_pretrained(
             base_model,
@@ -84,6 +90,7 @@ class SummaryEvaluator(nn.Module):
         self.dropout = nn.Dropout(0.25)
         self.classifier = nn.Linear(768, num_classes)
         self.num_classes = num_classes
+        self.weights = weights
 
     def forward(
         self,
@@ -105,7 +112,7 @@ class SummaryEvaluator(nn.Module):
 
         loss = None
         if labels is not None:
-            loss_fct = nn.CrossEntropyLoss()
+            loss_fct = nn.CrossEntropyLoss(weight=self.weights)
             loss = loss_fct(logits.view(-1, self.num_classes), labels.view(-1))
 
         return TokenClassifierOutput(
@@ -125,8 +132,26 @@ def tokenize(x, tokenizer, max_seq_length=4096):
     x["summ_attention_mask"] = summ_tokenization["attention_mask"]
     x["ctx_input_ids"] = ctx_tokenization["input_ids"]
     x["ctx_attention_mask"] = ctx_tokenization["attention_mask"]
-    x["labels"] = x["feedback"] - 1
+    x["labels"] = x["feedback"]  # - 1
     return x
+
+
+def concat_tokenize(x, tokenizer, max_seq_length=4096):
+    tokenization = tokenizer(
+        x["context"] + "\n\n" + x["summary"],
+        truncation=True,
+        padding="max_length",
+        max_length=max_seq_length,
+    )
+    x["input_ids"] = tokenization["input_ids"]
+    x["attention_mask"] = tokenization["attention_mask"]
+    x["labels"] = x["feedback"]  # - 1
+    return x
+
+
+def binarize_at_threshold(example, threshold=1):
+    example["labels"] = 1 if example["labels"] >= threshold else 0
+    return example
 
 
 @click.command()
@@ -139,6 +164,8 @@ def tokenize(x, tokenizer, max_seq_length=4096):
 @click.option("--weight_decay", default=0.01)
 @click.option("--output_dir", default="output", type=pathlib.Path)
 @click.option("--siamese_model", default=False, is_flag=True)
+@click.option("--binarize", default=False, is_flag=True)
+@click.option("--concat_model", default=False, is_flag=True)
 def main(
     pretrained_model,
     max_seq_length,
@@ -149,23 +176,54 @@ def main(
     weight_decay,
     output_dir,
     siamese_model,
+    binarize,
+    concat_model,
 ):
     config = AutoConfig.from_pretrained(pretrained_model)
-
+    config.max_position_embeddings = max_seq_length
+    config.torch_dtype = "fp16"
     summary_rating_data = load_dataset(
         "parquet", data_files={"train": "train_andrew.pq", "test": "test_andrew.pq"}
     )
-    tokenizer = AutoTokenizer.from_pretrained(pretrained_model)
 
-    summary_rating_data = summary_rating_data.map(
-        lambda x: tokenize(x, tokenizer, max_seq_length)
-    )
+    if pretrained_model == "mosaicml/mosaic-bert-base-seqlen-2048":
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(pretrained_model)
+
+    if concat_model:
+        summary_rating_data = summary_rating_data.map(
+            lambda x: concat_tokenize(x, tokenizer, max_seq_length)
+        )
+    else:
+        summary_rating_data = summary_rating_data.map(
+            lambda x: tokenize(x, tokenizer, max_seq_length)
+        )
+    if binarize:
+        summary_rating_data = summary_rating_data.map(binarize_at_threshold)
+
+    labels = np.array(summary_rating_data["train"]["labels"])
+    weights = np.bincount(labels - 1) / len(labels)
+    print(1.0 / weights)
+    # plt.bar(np.arange(2), np.bincount(labels))
+    # plt.show()
+    # exit()
+
     if siamese_model:
         summary_rating_data = summary_rating_data.remove_columns(
             ["summary", "context", "summary_id", "feedback"]
         ).with_format("torch")
 
         model = SiameseSummaryEvaluator(pretrained_model)
+    elif concat_model:
+        print(config)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            pretrained_model,
+            config=config,
+        )
+        summary_rating_data = summary_rating_data.remove_columns(
+            ["summary", "context", "summary_id", "feedback"]
+        ).with_format("torch")
     else:
         summary_rating_data = summary_rating_data.remove_columns(
             [
@@ -177,7 +235,10 @@ def main(
                 "ctx_attention_mask",
             ]
         ).with_format("torch")
-        model = SummaryEvaluator(pretrained_model)
+        if binarize:
+            model = SummaryEvaluator(pretrained_model, num_classes=2)
+        else:
+            model = SummaryEvaluator(pretrained_model)
 
     total_params = sum(
         dict((p.data_ptr(), p.numel()) for p in model.parameters()).values()

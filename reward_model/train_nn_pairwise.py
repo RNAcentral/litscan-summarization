@@ -177,7 +177,7 @@ def main(
         num_training_steps=num_training_steps,
     )
 
-    metric_train = load_metric("acuracy")
+    metric_train = load_metric("accuracy")
     metric_eval = load_metric("accuracy")
 
     train_losses = []
