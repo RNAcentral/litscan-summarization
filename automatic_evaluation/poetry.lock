@@ -1296,6 +1296,24 @@ files = [
 ]
 
 [[package]]
+name = "obonet"
+version = "1.0.0"
+description = "Parse OBO formatted ontologies into networkx"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "obonet-1.0.0-py3-none-any.whl", hash = "sha256:8b1fe4d140953cee6ce9dc5de585cc29c76b955c7b5e9f0174961fcbaef16999"},
+    {file = "obonet-1.0.0.tar.gz", hash = "sha256:e96a69e41210b01bab2d9613b287899cd8aa61b6a32e5a2792041f76d4bf2a28"},
+]
+
+[package.dependencies]
+networkx = "*"
+
+[package.extras]
+dev = ["pre-commit", "pytest"]
+
+[[package]]
 name = "openapi-schema-pydantic"
 version = "1.2.4"
 description = "OpenAPI (v3) specification schema as pydantic class"
@@ -2563,4 +2581,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "f2b188fb652555154c2774836480d9602e41241b088c35f77ff88060ec20e14d"
+content-hash = "383fb691a237bda53b1c147f86a593b7697657c1943cab4cc89495603a03790e"
