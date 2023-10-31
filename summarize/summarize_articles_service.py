@@ -114,6 +114,7 @@ def run_summary_job(job_ids, conn_str):
                 "consistency_check_result": veracity_check_result,
                 "selection_method": row["method"],
                 "rescue_prompts": rescue_prompts,
+                "urs_taxid": "",
             }
         )
     logging.info("Inserting all summaries into database...")

@@ -142,7 +142,7 @@ def get_sentence_for_many(conn_str, data):
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     ## Create temp table to insert IDs into
-    cur.execute("CREATE TEMPORARY TABLE temp_ids (id varchar(100), urs_taxid text);")
+    cur.execute("CREATE TEMP TABLE temp_ids (id varchar(100), urs_taxid text);")
 
     ## make the df huge
     data = (
@@ -176,13 +176,13 @@ def get_sentence_for_many(conn_str, data):
 
     """
     cur.execute(query)
-
     res = (
         pl.DataFrame(cur.fetchall())
-        .join(data, on="urs_taxid", how="left")
-        .drop_nulls()
-        .unique()
+        # .join(data, on="urs_taxid", how="left")
+        # .drop_nulls()
+        # .unique()
     )
+
     res = res.groupby("urs_taxid").apply(careful_group_pmcids_sentences)
 
     return res
