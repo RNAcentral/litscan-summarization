@@ -8,9 +8,13 @@ summarize/contexts/*
 summarize/veracity_checks/*
 summaries/*
 contexts/*
+summarize/veracity/*
+summarize/preliminary/*
 dumps/*
 *.json*
 *.png
+*.pq
+*.parquet
 .DS_Store
 .python-version
 100/*
