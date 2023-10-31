@@ -2,15 +2,21 @@ import os
 
 import click
 import matplotlib.pyplot as plt
+import nltk
 import polars as pl
 from rouge_score import rouge_scorer
 
-scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
+import evaluate
+
+scorer = rouge_scorer.RougeScorer(
+    ["rouge1", "rouge2", "rougeL", "rougeLsum"], use_stemmer=True
+)
+
+metric = evaluate.load("rouge")
 
 
 def calculate_rouge(row):
     scores = scorer.score(row["context"], row["summary"])
-
     f1_scores = {k: v.fmeasure for k, v in scores.items()}
     return f1_scores
 
@@ -29,7 +35,7 @@ def main(input_file, output_file, feedback_file=None):
         )
         .alias("result")
     ).unnest("result")
-
+    print(data)
     data.write_parquet(output_file)
 
     rouge1 = data.get_column("rouge1").to_numpy()
