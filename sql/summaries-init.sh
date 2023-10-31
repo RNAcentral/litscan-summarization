@@ -17,6 +17,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     consistency_check_result text,
     selection_method text,
     rescue_prompts text[],
+    primary_id character varying(44),
     FOREIGN KEY (rna_id) REFERENCES litscan_job(job_id) ON UPDATE CASCADE ON DELETE CASCADE
   );
   ALTER TABLE public.litsumm_summaries OWNER TO $LITSCAN_USER;
