@@ -93,9 +93,9 @@ def main(
 
     ## Resume form checkpoint
     done = None
-    if Path(f"{output_basename}.ndjson").exists():
+    if write_json and Path(f"{output_basename}.ndjson").exists():
         done = pl.read_ndjson(f"{output_basename}.ndjson")
-    elif Path(f"{output_basename}.parquet").exists():
+    elif write_parquet and Path(f"{output_basename}.parquet").exists():
         done = pl.read_parquet(f"{output_basename}.parquet")
     if done is not None:
         sentence_df = sentence_df.join(done, on="urs_taxid", how="anti")
