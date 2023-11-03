@@ -49,6 +49,39 @@
                     });
                 }
             </script>
+
+            <script type="text/javascript">
+                function start_review(){
+                    let name = document.getElementById("name");
+                    document.cookie = `name=${name.value}`;
+
+                    let startID = document.getElementById("startID");
+                    if (startID.value.length > 0) {
+                        console.log(startID.value);
+                        console.log(`seen_ids=${parseInt(startID.value)-1}`)
+                        document.cookie = `seen_ids=${parseInt(startID.value)-1}`;
+                    }
+
+                    let expand = document.getElementById("expand_context");
+                    if (expand.checked) {
+                        document.cookie = `expand=true`;
+                    } else {
+                        document.cookie = `expand=false`;
+                    }
+
+                    let url='{{url_for("present_single_summary")}}';
+                    window.location.replace(url);
+                }
+            </script>
+
+            <script type="text/javascript">
+                window.onload = function(){
+                    let element = document.getElementById("name")
+                    if (element) {
+                        element.value = document.cookie.split("name=")[1] ? document.cookie.split("name=")[1].split(";")[0] : "";
+                    }
+                }
+            </script>
         {% endblock %}
     </body>
 </html>

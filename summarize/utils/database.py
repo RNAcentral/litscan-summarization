@@ -19,7 +19,9 @@ Settings = namedtuple(
 )
 
 
-def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
+def insert_rna_data(
+    data_dict, conn_str, interactive=False, overwrite=False, check_fk=True
+):
     conn = psycopg2.connect(conn_str)
     cur = conn.cursor()
     if interactive:
@@ -39,7 +41,7 @@ def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
     else:
         if overwrite:
             logging.warning("Overwriting data in database!")
-            cur.execute("truncate table litsumm_summaries")
+            cur.execute("truncate table litsumm_summaries cascade")
         else:
             logging.warning(
                 "Appending data! Things might get funky if inserting duplicate entity IDs!"
@@ -47,7 +49,7 @@ def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
 
     data = [
         (
-            e["ent_id"],
+            e["ent_id"].lower(),
             e["context"],
             e["summary"],
             e["cost"],
@@ -56,10 +58,32 @@ def insert_rna_data(data_dict, conn_str, interactive=False, overwrite=False):
             e["problem_summary"],
             e["truthful"],
             e["consistency_check_result"],
+            e["selection_method"],
+            e["rescue_prompts"],
+            e["urs_taxid"],
         )
         for e in data_dict
     ]
-    insert_query = "insert into litsumm_summaries (rna_id, context, summary, cost, total_tokens, attempts, problem_summary, truthful, consistency_check_result) values %s"
+
+    if check_fk:
+        fk_check_query = "select job_id from litscan_job"
+        fk_insert_query = "insert into litscan_job (job_id) values %s"
+        cur.execute(
+            fk_check_query,
+        )
+        stored_ids = cur.fetchall()
+        if len(stored_ids) > 0:
+            stored_ids = set([e[0] for e in stored_ids])
+            new_ids = set([e["ent_id"].lower() for e in data_dict]) - stored_ids
+            print(new_ids)
+            if len(new_ids) > 0:
+                execute_values(cur, fk_insert_query, [(a,) for a in new_ids])
+        else:
+            execute_values(
+                cur, fk_insert_query, [(e["ent_id"].lower(),) for e in data_dict]
+            )
+
+    insert_query = "insert into litsumm_summaries (rna_id, context, summary, cost, total_tokens, attempts, problem_summary, truthful, consistency_check_result, selection_method, rescue_prompts, primary_id) values %s"
     execute_values(cur, insert_query, data, page_size=100)
     conn.commit()
     cur.close()

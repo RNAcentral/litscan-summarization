@@ -65,14 +65,13 @@ def for_summary(
             ## No sentences to summarize
             return None
 
-        sentence_df = tokenize_and_count(sentence_df)
+        sentence_df = tokenize_and_count(sentence_df, limit)
         if cache is not None:
             sentence_df.write_json(cache)
     sentence_df = resolve_aliases(sentence_df)
 
     model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
 
-    # sentence_df = sentence_df.filter(pl.col("primary_id").is_in(["FAM197Y2P", "LOC100288254", "FLJ13224", "LINC00910", "PSMA3-AS1", "SLC25A25-AS1"]))
     # ## WIP: Dealing with huge numbers of sentences is hard
     # ## First deal with those below context limit
     under_limit = sentence_df.filter(pl.col("total").lt(limit))

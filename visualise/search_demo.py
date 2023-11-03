@@ -130,12 +130,24 @@ def select_examples(conn_str):
     return ids
 
 
+def get_all_ids(conn_str):
+    if conn_str is None:
+        conn_str = os.getenv("PGDATABASE")
+    conn = pg.connect(conn_str)
+    cur = conn.cursor()
+    cur.execute("select rna_id from litsumm_summaries")
+    id_list = [a[0] for a in cur.fetchall()]
+    return id_list
+
+
 def search_db(ent_id, conn_str=None):
     if conn_str is None:
         conn_str = os.getenv("PGDATABASE")
     conn = pg.connect(conn_str)
     cur = conn.cursor()
-    cur.execute("select * from litsumm_summaries where rna_id = %s", (ent_id.lower(),))
+    cur.execute(
+        "select * from litsumm_summaries where LOWER(rna_id) = %s", (ent_id.lower(),)
+    )
     res = cur.fetchone()
     if res is None:
         (
@@ -166,6 +178,7 @@ def search_db(ent_id, conn_str=None):
             problematic_summary,
             veracity_result,
             selection_method,
+            rescue_prompts,
         ) = res
         first_ref = pmcid_pattern.findall(context)[0]
         prompt_1 = context_padding.format(
@@ -219,6 +232,8 @@ with visualisation:
         search_button = gr.Button(value="Search")
     with gr.Row():
         examples = gr.Examples(select_examples(conn_str), id_input)
+    with gr.Row():
+        dd_select = gr.Dropdown(get_all_ids(conn_str), label="Select ID")
 
     with gr.Row():
         summary = gr.Textbox(label="Summary")
@@ -239,7 +254,9 @@ with visualisation:
         veracity_rescue_prompt = gr.Textbox(label="Veracity Rescue Prompt")
 
     with gr.Row():
-        veracity_output = gr.Textbox(label="Veracity Output")
+        veracity_output = gr.Textbox(
+            label="Veracity Output",
+        )
 
     id_input.submit(
         lambda x: search_db(x, conn_str),
@@ -263,6 +280,25 @@ with visualisation:
     search_button.click(
         lambda x: search_db(x, conn_str),
         inputs=id_input,
+        outputs=[
+            summary,
+            context,
+            tokens,
+            cost,
+            attempts,
+            problematic,
+            truthful,
+            initial_prompt,
+            rescue_prompt,
+            veracity_prompt,
+            veracity_rescue_prompt,
+            veracity_output,
+            selection_method,
+        ],
+    )
+    dd_select.input(
+        lambda x: search_db(x, conn_str),
+        inputs=dd_select,
         outputs=[
             summary,
             context,

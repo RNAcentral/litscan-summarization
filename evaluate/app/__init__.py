@@ -93,6 +93,15 @@ def reset_seen():
     return resp
 
 
+@app.route("/set_user")
+def set_user():
+    user_id = request.args.get("user_name")
+    print(user_id)
+    resp = make_response(url_for("intro"))
+    resp.set_cookie("user", user_id)
+    return resp
+
+
 @app.route("/single")
 def present_single_summary():
     conn = psycopg2.connect(conn_str)
@@ -103,6 +112,13 @@ def present_single_summary():
         seen_ids = []
     else:
         seen_ids = [int(i) for i in request.cookies.get("seen_ids").split(" ")]
+
+    user_id = request.cookies.get("name")
+    if not user_id or user_id == "":
+        resp.set_cookie("name", "anonymous")
+
+    expand_context = request.cookies.get("expand") == "true"
+
     print(seen_ids)
     ## Get maximum ID
     cur.execute("SELECT COUNT(id) FROM litsumm_summaries;")
@@ -150,9 +166,17 @@ def present_single_summary():
             problematic_summary,
             veracity_result,
             selection_method,
+            rescue_prompts,
+            primary_id,
         ) = cur.fetchone()
 
+        PREV_QUERY = f"SELECT feedback FROM litsumm_feedback_single WHERE summary_id = {selected} AND user_id = '{user_id}';"
+        cur.execute(PREV_QUERY)
+        res = cur.fetchone()
+        prev_feedback = res[0] if res is not None else None
         app.logger.debug(rna_id)
+        if expand_context:
+            context = context.replace("].", "].\n\n")
         resp = make_response(
             render_template(
                 "single_summary.html",
@@ -160,15 +184,13 @@ def present_single_summary():
                 rna_id=rna_id,
                 context=context,
                 summ_id=summ_id,
+                curr_summ_id=selected - first_id,
+                N=N,
+                previous=prev_feedback,
             )
         )
 
         resp.set_cookie("seen_ids", " ".join([str(i) for i in seen_ids]))
-
-    user_id = request.cookies.get("user")
-    if user_id is None:
-        user_id = uuid.uuid4()
-        resp.set_cookie("user", str(user_id))
 
     return resp
 
@@ -180,7 +202,7 @@ def save_single_feedback():
 
     feedback = request.json
 
-    user_id = request.cookies.get("user")
+    user_id = request.cookies.get("name")
     feedback["user_id"] = str(user_id)
 
     print(feedback)

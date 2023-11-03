@@ -22,7 +22,7 @@ def get_summarizer_prompt() -> ChatPromptTemplate:
         "For example, the first sentence has the reference [{first_ref}]. "
         "Refrences should only be provided at the end of sentences, and MUST follow the style in the context. Do not list references at the end of the summary. "
         "You MUST provide at least one reference per sentence you produce. "
-        "Use only the information in the context given above. "
+        "Use only the information in the context given above. Start your summary with a brief description of {ent_id}, noting its type. "
         "Use 200 words or less."
         "\nSummary:\n"
     )
@@ -41,6 +41,65 @@ def get_revision_prompt() -> ChatPromptTemplate:
         "Given the following summary:\n{summary}\n"
         "and its original context: \n{context_str}\n"
         "rewrite the summary to include at least one reference at the end of each sentence. "
+        "References are provided in the original context, enclosed in [].\n"
+        "For example, the first sentence has the reference [{first_ref}]. "
+        "You should use the same format for references in your summary. "
+        "Revised Summary: "
+    )
+
+    system_prompt = SystemMessagePromptTemplate.from_template(system_instruction)
+    human_prompt = HumanMessagePromptTemplate.from_template(revision_context)
+
+    chat_prompt = ChatPromptTemplate.from_messages([system_prompt, human_prompt])
+
+    return chat_prompt
+
+
+def get_inadequate_references_revision_prompt() -> ChatPromptTemplate:
+    revision_context = (
+        "The following summary:\n{summary}\n"
+        "Does not have enough references. Add the correct references to each sentence, using only references from the following context:"
+        "\n{context_str}\n"
+        "References are provided in the context, enclosed in []. "
+        "For example, the first sentence has the reference [{first_ref}].\n"
+        "You must use the same format for references in the summary. "
+        "Revised Summary: "
+    )
+
+    system_prompt = SystemMessagePromptTemplate.from_template(system_instruction)
+    human_prompt = HumanMessagePromptTemplate.from_template(revision_context)
+
+    chat_prompt = ChatPromptTemplate.from_messages([system_prompt, human_prompt])
+
+    return chat_prompt
+
+
+def get_bad_ref_format_revision_prompt() -> ChatPromptTemplate:
+    revision_context = (
+        "The following summary:\n{summary}\n"
+        "Uses the wrong format for references. Add the correct references to each sentence, using only references from the following context:"
+        "\n{context_str}\n"
+        "References are provided in the context, enclosed in [].\n"
+        'References in the summary that need replacing match the regex "\[\d+\]".\n'
+        "For example, the first sentence has the reference [{first_ref}]. "
+        "You must use the same format for references in your summary. "
+        "Revised Summary: "
+    )
+
+    system_prompt = SystemMessagePromptTemplate.from_template(system_instruction)
+    human_prompt = HumanMessagePromptTemplate.from_template(revision_context)
+
+    chat_prompt = ChatPromptTemplate.from_messages([system_prompt, human_prompt])
+
+    return chat_prompt
+
+
+def get_fake_reference_revision_prompt() -> ChatPromptTemplate:
+    revision_context = (
+        "The following summary:\n{summary}\n"
+        "Contains references which do not appear in the context it was derived from. "
+        "Given the context below, revise the summary to include only references which appear in the context. "
+        "Context: \n{context_str}\n"
         "References are provided in the original context, enclosed in [].\n"
         "For example, the first sentence has the reference [{first_ref}]. "
         "You should use the same format for references in your summary. "
@@ -95,8 +154,8 @@ def get_veracity_revision_prompt() -> ChatPromptTemplate:
     veracity_revision_context = (
         "{checked_assertions}\n\n"
         "In light of the above checks about its veracity, refine the summary below to ensure all statements are true.\n"
-        "Ensure that you retain references in their original format, which should look like [{first_ref}].\n"
         "Original summary: \n{summary}\n"
+        "Do not change the reference style used, but you may add or remove references.\n"
         "Revised summary:\n"
     )
     human_prompt = HumanMessagePromptTemplate.from_template(veracity_revision_context)
@@ -113,8 +172,15 @@ def get_summarizer_chain(llm, verbose=False) -> LLMChain:
     return chain
 
 
-def get_reference_chain(llm, verbose=False) -> LLMChain:
-    prompt = get_revision_prompt()
+def get_reference_chain(llm, mode, verbose=False) -> LLMChain:
+    if mode == "adequate":
+        prompt = get_inadequate_references_revision_prompt()
+    elif mode == "bad_format":
+        prompt = get_bad_ref_format_revision_prompt()
+    elif mode == "fake":
+        prompt = get_fake_reference_revision_prompt()
+    elif mode == "other":
+        prompt = get_revision_prompt()
     chain = LLMChain(llm=llm, prompt=prompt, verbose=verbose)
     return chain
 
