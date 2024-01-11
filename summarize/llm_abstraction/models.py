@@ -17,6 +17,11 @@ def get_model(source: str, kwargs):
             temperature=temperature,
             model_kwargs=kwargs,
         )
+    elif source.lower() == "gpt4":
+        logging.info("Initializing Anthropic Claude LLM")
+        llm = ChatOpenAI(
+            model="gpt-4-1106-preview", temperature=temperature, model_kwargs=kwargs
+        )
     elif source.lower() == "claude":
         logging.info("Initializing Anthropic Claude LLM")
         llm = ChatAnthropic(
