@@ -1,7 +1,10 @@
 import logging
+import os
 
 from langchain.chat_models import ChatAnthropic, ChatOpenAI
 from langchain.llms import LlamaCpp
+
+ORG_KEY = os.getenv("OPENAI_ORG_KEY")
 
 
 def get_model(source: str, kwargs):
@@ -16,11 +19,15 @@ def get_model(source: str, kwargs):
             model_name="gpt-3.5-turbo-0613",
             temperature=temperature,
             model_kwargs=kwargs,
+            openai_organization=ORG_KEY,
         )
     elif source.lower() == "gpt4":
-        logging.info("Initializing Anthropic Claude LLM")
+        logging.info("Initializing GPT4 LLM")
         llm = ChatOpenAI(
-            model="gpt-4-1106-preview", temperature=temperature, model_kwargs=kwargs
+            model="gpt-4-1106-preview",
+            temperature=temperature,
+            model_kwargs=kwargs,
+            openai_organization=ORG_KEY,
         )
     elif source.lower() == "claude":
         logging.info("Initializing Anthropic Claude LLM")
