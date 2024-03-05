@@ -22,7 +22,7 @@ def anonymise_data(data):
         .then("Rater_0")
         .when(pl.col("user_id").eq("blake"))
         .then("Rater_1")
-        .when(pl.col("user_id").eq("andrew"))
+        .when(pl.col("user_id").eq("Andrew"))
         .then("Rater_2")
         .when(pl.col("user_id").eq("Alex"))
         .then("Rater_3")
@@ -153,6 +153,25 @@ def scatterFilter(x, y, **kwargs):
     default=False,
     help="Plot correlation between feedback ratings",
 )
+@click.option(
+    "--rna_type_feedback",
+    is_flag=True,
+    default=False,
+    help="Plot the per-rater feedback, and average feedback grouped by RNA type",
+)
+@click.option(
+    "--feedback_histograms",
+    is_flag=True,
+    default=False,
+    help="Plot a pair plot of feedback data",
+)
+@click.option("--gpt4", is_flag=True, default=False, help="Use GPT4 summary ratings")
+@click.option(
+    "--checkboxes",
+    is_flag=True,
+    default=False,
+    help="Run aggregations to get checkbox stats",
+)
 def main(
     output_path,
     feedback_pair_grid,
@@ -167,20 +186,30 @@ def main(
     feedback_correlation,
     feedback_correlation_bert,
     bert_rouge_correlation,
+    rna_type_feedback,
+    feedback_histograms,
+    gpt4,
+    checkboxes,
 ):
+    # pl.Config.set_tbl_rows(1000)
+    pl.Config.set_tbl_cols(1000)
     output_path = Path(output_path)
 
-    data = pl.read_parquet(
-        "with_rouge.parquet"
-    )  # .filter(pl.col("selection_method").eq("round-robin")).with_columns(context_size=pl.col("context").str.lengths())
-    # .sort("rouge2").filter(pl.col("rouge2").lt(0.71) & pl.col("rougeL").lt(0.8) & pl.col("rouge1").lt(0.8)) #.to_pandas()
-    rouge_data = data.melt(
-        id_vars="ent_id", value_vars=["rouge1", "rouge2", "rougeL"]
-    ).rename({"variable": "rouge-type", "value": "rouge"})
+    basedir = "/Users/agreen/code/litscan-summarization/automatic_evaluation"
 
-    bert_data = pl.read_parquet("with_bert.parquet").with_columns(dummy=pl.lit("f1"))
+    # data = pl.read_parquet(
+    #     f"{basedir}/with_rouge.parquet"
+    # )  # .filter(pl.col("selection_method").eq("round-robin")).with_columns(context_size=pl.col("context").str.lengths())
+    # # .sort("rouge2").filter(pl.col("rouge2").lt(0.71) & pl.col("rougeL").lt(0.8) & pl.col("rouge1").lt(0.8)) #.to_pandas()
+    # rouge_data = data.melt(
+    #     id_vars="ent_id", value_vars=["rouge1", "rouge2", "rougeL"]
+    # ).rename({"variable": "rouge-type", "value": "rouge"})
+
+    bert_data = pl.read_parquet(f"{basedir}/with_bert.parquet").with_columns(
+        dummy=pl.lit("f1")
+    )
     bert_data_fb = (
-        pl.read_parquet("fb_with_bert.parquet")
+        pl.read_parquet(f"{basedir}/fb_with_bert.parquet")
         .with_columns(
             pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
         )
@@ -192,7 +221,7 @@ def main(
     )
 
     rouge_data_fb = (
-        pl.read_parquet("fb_with_rouge.parquet")
+        pl.read_parquet(f"{basedir}/fb_with_rouge.parquet")
         .with_columns(
             pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
         )
@@ -202,16 +231,30 @@ def main(
         .select(["rna_id", "rouge1", "rouge2", "rougeL"])
         .unique("rna_id")
     )
-    print(rouge_data_fb)
 
-    fb_data = (
-        pl.read_parquet("all_feedback_200.parquet")
-        .with_columns(
-            pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
+    if gpt4:
+        fb_data = (
+            pl.read_parquet("all_feedback_GPT4.pq")
+            .with_columns(display=pl.col("feedback").gt(2))
+            .with_columns(dummy=pl.lit("1"))
         )
-        .with_columns(display=pl.col("feedback").gt(2))
-    )
+        fb_data = fb_data.filter(pl.col("user_id") != "None")
+        fb_data = fb_data.unique(subset=["rna_id", "user_id"]).sort(by="summary_id")
+    else:
+        fb_data = (
+            pl.read_parquet(f"{basedir}/all_feedback_200.parquet")
+            .with_columns(
+                pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
+            )
+            .with_columns(display=pl.col("feedback").gt(2))
+            .with_columns(dummy=pl.lit("1"))
+        )
+
     fb_data = anonymise_data(fb_data)
+    average_rating = fb_data.groupby("summary_id").agg(
+        pl.col("feedback").mean().alias("average")
+    )
+
     second_batch = (
         fb_data.join(bert_data_fb, on="rna_id")
         .join(rouge_data_fb, on="rna_id")
@@ -234,7 +277,6 @@ def main(
     )
 
     # bert_data_fb = anonymise_data(bert_data_fb)
-    print(second_batch)
 
     common_ids = (
         fb_data.groupby("rna_id")
@@ -251,7 +293,6 @@ def main(
         .filter(pl.col("user_id").is_in(["Rater_0", "Rater_1", "Rater_2"]))
         .unique(["rna_id", "rouge-type", "rouge", "user_id"])
     )
-    print(rouge_data_fb)
 
     rating_data_fb = (
         fb_data.filter(pl.col("summary_id").gt(300))
@@ -267,7 +308,6 @@ def main(
 
     # rating_data_fb = fb_data.groupby("rna_id").agg([pl.col("user_id"), pl.col("feedback")]).melt(id_vars='rna_id', value_vars=["user_id", "feedback"]).rename({"variable": "rater", "value": "rating"})
     # .apply(lambda x: x.with_columns(pl.struct(["user_id", "feedback"]).apply(lambda y: {y['user_id']: y["feedback"]}).alias("result")).unnest("result"))
-    print(rating_data_fb)
 
     if rna_type_distribution:
         rna_type_data = pl.read_parquet("../staging_area/selected_sentences.parquet")
@@ -532,6 +572,421 @@ def main(
         plt.savefig(output_path / "BERTscore_ROUGE_correlation.png")
 
         plt.show()
+
+    if feedback_histograms:
+        # g = sns.FacetGrid(
+        #     rating_data_compare.to_pandas(),
+        #     col="user_id",
+        #     row="batch",
+        #     col_order=["Rater_0", "Rater_1", "Rater_2"],
+        #     # row_order=["feedback"],
+        #     margin_titles=False,
+        # )
+        # g.map_dataframe(sns.histplot,  x="feedback", bins=[0,1,2,3,4,5,6],discrete=True)
+        print(fb_data.columns)
+        g = sns.FacetGrid(
+            fb_data.to_pandas(),
+            col="user_id",
+            row="dummy",
+            col_order=["Rater_0", "Rater_1", "Rater_2"],
+            # row_order=["feedback"],
+            margin_titles=False,
+        )
+        g.map_dataframe(
+            sns.histplot, x="feedback", bins=[0, 1, 2, 3, 4, 5, 6], discrete=True
+        )
+        g.set_titles(template="{col_name}")
+        for ax in g.axes.flat:
+            ax.set_xticks([1, 2, 3, 4, 5])
+            ax.set_xlabel("Feedback")
+        plt.savefig(output_path / "feedback_histograms.png")
+        # g.facet_axis(1, 0, modify_state=True)
+
+        plt.figure()
+        from matplotlib.ticker import MaxNLocator
+
+        ax = sns.histplot(
+            average_rating.to_pandas(),
+            x="average",
+            bins=[0, 1, 2, 3, 4, 5, 6],
+            discrete=True,
+        )
+        ticks = [np.ceil(y) for y in ax.get_yticks()]
+        ax.set_yticks(ticks)
+        ax.set_xticks([1, 2, 3, 4, 5])
+        ax.set_xlim((0, 6))
+        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.set_xlabel("Average Feedback")
+        plt.savefig(output_path / "feedback_histograms_average.png")
+        plt.show()
+
+        modes = [
+            "hallucinated",
+            "not supported",
+            "contradiction",
+            "format",
+            "causality",
+        ]
+
+        ## Everyone has a slightly different way of recording these things...
+        failures = fb_data.filter(pl.col("feedback").lt(3))
+        a_failures = failures.filter(pl.col("user_id").eq("Rater_2"))
+        a_failures = a_failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*hallucin.*ref.*")
+            .alias("reference formatting")
+        )
+        a_failures = a_failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*hallucin.*")
+            .__and__(pl.col("reference formatting").is_not())
+            .alias("hallucinated")
+        )
+        a_failures = a_failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*causality.*")
+            .alias("causality")
+        )
+        a_failures = a_failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*contra.*")
+            .alias("contradiction")
+        )
+        a_failures = a_failures.with_columns(
+            pl.col("contradiction")
+            .__or__(pl.col("causality"))
+            .__or__(pl.col("inaccurate_text"))
+            .alias("inaccurate text")
+        )
+        a_failures = a_failures.drop(["contradiction", "causality"])
+
+        b_failures = failures.filter(pl.col("user_id").eq("Rater_1"))
+        b_failures = b_failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*hallucin.*ref.*")
+            .alias("reference formatting")
+        )
+        b_failures = b_failures.with_columns(
+            pl.col("contains_hallucinations").alias("hallucinated")
+        )
+        b_failures = b_failures.with_columns(
+            pl.col("inaccurate_text").alias("inaccurate text")
+        )
+
+        print(b_failures.get_column("feedback_id").to_list())
+
+        c_failures = failures.filter(pl.col("user_id").eq("Rater_0"))
+        c_failures = c_failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*not supported.*")
+            .alias("inaccurate text")
+        )
+        c_failures = c_failures.with_columns(
+            pl.col("inaccurate_text")
+            .__or__(pl.col("inaccurate text"))
+            .alias("inaccurate text")
+        )
+        c_failures = c_failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*format.*")
+            .alias("Reference formatting")
+        )
+
+        print(a_failures)
+        print(b_failures)
+        print(c_failures)
+        exit()
+
+        failures = failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*hallucin.*")
+            .alias("hallucinated")
+        )
+        failures = failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*not supported.*")
+            .alias("not supported")
+        )
+        failures = failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*contra.*")
+            .alias("contradiction")
+        )
+        failures = failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*format.*")
+            .alias("reference formatting")
+        )
+        failures = failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*causality.*")
+            .alias("causality")
+        )
+        failures = failures.with_columns(
+            pl.col("free_feedback")
+            .str.to_lowercase()
+            .str.contains(".*irrelevant.*")
+            .alias("irrelevant detail")
+        )
+        failures = failures.with_columns(
+            pl.col("contradiction")
+            .__or__(
+                pl.col("not supported")
+                .__or__(pl.col("causality"))
+                .__or__(pl.col("inaccurate_text"))
+                .__or__(pl.col("hallucinated"))
+            )
+            .alias("inaccurate text")
+        )
+        failures = failures.with_columns(
+            pl.col("hallucinated").__or__(pl.col("contains_hallucinations"))
+        )
+        failures = failures.with_columns(
+            pl.col("irrelevant detail").__or__(pl.col("over_specific"))
+        )
+
+        print(
+            failures.select(
+                pl.col("feedback_id"),
+                pl.col("hallucinated"),
+                pl.col("not supported"),
+                pl.col("reference formatting"),
+                pl.col("irrelevant detail"),
+            )
+        )
+
+        print(failures.groupby("user_id").agg(pl.count(), pl.col("feedback_id")))
+        for fb in (
+            failures.filter(pl.col("user_id").eq("Rater_1"))
+            .get_column("free_feedback")
+            .to_list()
+        ):
+            print(fb)
+
+        fail_type_count = failures.groupby("user_id").agg(
+            pl.col("hallucinated"),
+            pl.col("reference formatting"),
+            pl.col("irrelevant detail"),
+        )
+        fail_type_count = fail_type_count.with_columns(
+            pl.col("hallucinated").list.count_match(True),
+            # pl.col("inaccurate_text").list.count_match(True),
+            pl.col("reference formatting").list.count_match(True),
+            pl.col("irrelevant detail").list.count_match(True),
+        )
+        print(fail_type_count)
+        fail_type_count_bar = fail_type_count.melt(id_vars="user_id")
+        print(fail_type_count)
+        plt.figure()
+        sns.barplot(
+            fail_type_count_bar.to_pandas(), x="variable", y="value", hue="user_id"
+        )
+        plt.xlabel("Failure Mode")
+        plt.ylabel("Count")
+
+        # plt.figure()
+        # sns.heatmap(fail_type_count.select(["hallucinated", "inaccurate_text", "formatting", "irrelevant_detail"]).to_pandas(), annot=True)
+        plt.show()
+
+    if rna_type_feedback:
+        ## read and prepare feedback data
+        # fb_data = (
+        # pl.read_parquet("all_feedback_200.parquet")
+        # .with_columns(
+        #     pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
+        # )
+        # .with_columns(display=pl.col("feedback").gt(2))
+        # )
+        # fb_data = anonymise_data(fb_data)
+
+        second_batch = fb_data.filter(pl.col("summary_id").gt(300))
+
+        ## Read and prep RNA type data
+        rna_type_data = pl.read_parquet("../staging_area/selected_sentences.parquet")
+
+        print("Resolving to simple types")
+        # "https://raw.githubusercontent.com/The-Sequence-Ontology/SO-Ontologies/master/Ontology_Files/so.obo"
+        so = obonet.read_obo(
+            "https://raw.githubusercontent.com/The-Sequence-Ontology/SO-Ontologies/07b30b453295147efa9f9f8c017907cd147fcaa9/Ontology_Files/so.obo"
+        )
+        lncRNAs = nx.ancestors(so, "SO:0001877")
+        lncRNAs.add("SO:0001877")
+        miRNAs = nx.ancestors(so, "SO:0000276")
+        miRNAs.add("SO:0000276")
+        snoRNAs = nx.ancestors(so, "SO:0000275")
+        snoRNAs.add("SO:0000275")
+        pre_miRNA = nx.ancestors(so, "SO:0001244")
+        pre_miRNA.add("SO:0001244")
+
+        rna_type_data = rna_type_data.with_columns(
+            simple_type=pl.when(pl.col("so_rna_type").is_in(lncRNAs))
+            .then("lncRNA")
+            .when(pl.col("so_rna_type").is_in(miRNAs))
+            .then("miRNA")
+            .when(pl.col("so_rna_type").is_in(snoRNAs))
+            .then("snoRNA")
+            .when(pl.col("so_rna_type").is_in(pre_miRNA))
+            .then("pre_miRNA")
+            .otherwise("Other")
+        ).with_columns(pl.col("primary_id").str.to_lowercase())
+        type_rating_data = rna_type_data.join(
+            rating_data_fb, left_on="primary_id", right_on="rna_id"
+        )
+        print(type_rating_data)
+        average_rating = type_rating_data.groupby("simple_type").agg(
+            [pl.col("feedback").count().alias("count"), pl.col("primary_id")]
+        )
+        average_rating = average_rating.explode("primary_id")
+        print(average_rating.unique("simple_type"))
+        print(rating_data_fb.unique("summary_id"))
+
+        type_rating_data = type_rating_data.join(average_rating, on="primary_id").sort(
+            by="count", descending=True
+        )
+        type_rating_data = type_rating_data.unique(
+            subset=["urs_taxid", "Rater_0", "Rater_1", "Rater_2"]
+        )
+        print(
+            type_rating_data.select(
+                ["urs_taxid", "Rater_0", "Rater_1", "Rater_2"]
+            ).sort(by="urs_taxid")
+        )  # .unique("simple_type", maintain_order=True))
+
+        g = sns.FacetGrid(
+            type_rating_data.to_pandas(),
+            col="user_id",
+            row="simple_type",
+            col_order=["Rater_0", "Rater_1", "Rater_2"],
+            hue="simple_type",
+            hue_order=["lncRNA", "miRNA", "pre_miRNA", "snoRNA", "Other"],
+            # row_order=["count"],
+            margin_titles=False,
+        )
+        g.map_dataframe(
+            sns.histplot, x="feedback", bins=[0, 1, 2, 3, 4, 5, 6], discrete=True
+        )
+        g.set_titles(template="{col_name}")
+        for ax in g.axes.flat:
+            ax.set_xticks([1, 2, 3, 4, 5])
+            ax.set_xlabel("Feedback")
+
+        ## manually set the right hand axis label for rna type
+        type_names = type_rating_data.unique(
+            "simple_type", maintain_order=True
+        ).get_column("simple_type")
+        for i, type_name in enumerate(type_names):
+            g.axes[i][0].set_ylabel(type_name)
+
+        for row in range(1, len(type_names)):
+            for col in range(3):
+                g.axes[row][col].set_title("")
+        # g.axes[0][0].set_ylabel("lncRNA")
+        # g.axes[1][0].set_ylabel("pre_miRNA")
+        # g.axes[2][0].set_ylabel("snoRNA")
+        # g.axes[3][0].set_ylabel("miRNA")
+        # g.axes[4][0].set_ylabel("Other")
+
+        # plt.savefig(output_path / "feedback_histograms.png")
+        # g.facet_axis(1, 0, modify_state=True)
+
+        # plt.figure()
+        # from matplotlib.ticker import MaxNLocator
+        # ax = sns.histplot(average_rating.to_pandas(), x="average", bins=[0,1,2,3,4,5,6],discrete=True)
+        # # ticks = [np.ceil(y) for y in ax.get_yticks()]
+        # # ax.set_yticklabels(ticks)
+        # ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+        # ax.set_xlabel("Average Feedback")
+        plt.savefig(output_path / "feedback_histograms_type.png")
+        plt.show()
+
+        exit()
+
+        print(fb_data)
+        print(rna_type_data)
+        print(fb_data.columns)
+        print(rna_type_data.columns)
+        exit()
+        # rna_type_fb_data = rna_type_data.join(fb_data, left_on=)
+
+        averages = (
+            rna_type_fb_data.groupby("simple_type")
+            .agg(pl.mean("feedback").alias("count"))
+            .sort("count", descending=True)
+        )
+        counts = counts.with_columns(pc=pl.col("count") / rna_type_data.height * 100)
+        print(counts.sum())
+        ax = sns.barplot(counts.to_pandas(), x="count", y="simple_type")
+        plt.ylabel("")
+
+        labels_large = [
+            f"{t} ({(t/4674)*100:.2f}%)" if t > 1000 else ""
+            for t in counts.get_column("count").to_numpy()
+        ]
+        labels_small = [
+            f"{t} ({(t/4674)*100:.2f}%)" if t < 1000 else ""
+            for t in counts.get_column("count").to_numpy()
+        ]
+        ax.bar_label(
+            ax.containers[0], labels_large, padding=-90, color="white"
+        )  # , fmt="%.0f")
+        ax.bar_label(ax.containers[0], labels_small, padding=5)
+        # plt.savefig(output_path / "RNA_type_feedback_distribution.png", bbox_inches="tight")
+        # plt.tight_layout()
+        plt.show()
+
+    if checkboxes:
+        print(fb_data.columns)
+        print(
+            f"False positives:{fb_data.filter(pl.col('false_positive') == 't').height}"
+        )
+        print(
+            f"Hallucinations:{fb_data.filter(pl.col('contains_hallucinations') == 't').height}"
+        )
+        print(
+            f"Inaccurate Text:{fb_data.filter(pl.col('inaccurate_text') == 't').height}"
+        )
+        print(f"Contradictions:{fb_data.filter(pl.col('contradictory') == 't').height}")
+        print(f"Over Specific:{fb_data.filter(pl.col('over_specific') == 't').height}")
+        print(f"Bad Length:{fb_data.filter(pl.col('bad_length') == 't').height}")
+        print(f"Mentions AI:{fb_data.filter(pl.col('mentions_ai') == 't').height}")
+        print(f"Short Context:{fb_data.filter(pl.col('short_context') == 't').height}")
+
+        for summary_id in fb_data.get_column("summary_id").unique().to_list():
+            feedbacks = (
+                fb_data.filter(pl.col("summary_id") == summary_id)
+                .get_column("free_feedback")
+                .to_list()
+            )
+            checks = fb_data.filter(pl.col("summary_id") == summary_id).select(
+                [
+                    "user_id",
+                    "feedback",
+                    "false_positive",
+                    "contains_hallucinations",
+                    "inaccurate_text",
+                    "contradictory",
+                    "over_specific",
+                    "bad_length",
+                    "mentions_ai",
+                    "short_context",
+                ]
+            )
+            print(checks)
+            print("\n\n".join(feedbacks))
+
+            n = input("input something to continue")
 
 
 if __name__ == "__main__":
