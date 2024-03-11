@@ -44,7 +44,7 @@ def classify_abstracts_df(abstract_text, model):
     Basically a wrapper function to apply the LLM classification across a
     dataframe
     """
-    r = classify_abstract(abstract_text, model=model, output_writer=lmql.printing)
+    r = classify_abstract(abstract_text, model=model)
     return r.variables["P(CLS)"][0][1]
 
 
