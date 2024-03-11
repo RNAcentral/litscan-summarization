@@ -86,7 +86,7 @@ def main(abstracts, output, model_path, database, ngl):
             piece.write_parquet(f"{output}_{n}.pq")
         exit()
     else:
-        abstracts = pl.read_parquet(abstracts).head(100)
+        abstracts = pl.read_parquet(abstracts)
     # abstract_text = """RNase P RNA (RPR), the catalytic subunit of the essential RNase P ribonucleoprotein, removes the 5' leader from precursor tRNAs. The ancestral eukaryotic RPR is a Pol III transcript generated with mature termini. In the branch of the arthropod lineage that led to the insects and crustaceans, however, a new allele arose in which RPR is embedded in an intron of a Pol II transcript and requires processing from intron sequences for maturation. We demonstrate here that the Drosophila intronic-RPR precursor is trimmed to the mature form by the ubiquitous nuclease Rat1/Xrn2 (5') and the RNA exosome (3'). Processing is regulated by a subset of RNase P proteins (Rpps) that protects the nascent RPR from degradation, the typical fate of excised introns. Our results indicate that the biogenesis of RPR in vivo entails interaction of Rpps with the nascent RNA to form the RNase P holoenzyme and suggests that a new pathway arose in arthropods by coopting ancient mechanisms common to processing of other noncoding RNAs."""
     print(abstracts)
 
