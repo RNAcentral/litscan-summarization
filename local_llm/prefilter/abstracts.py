@@ -66,7 +66,8 @@ PGDATABASE = os.getenv("PGDATABASE")
 )
 @click.option("--database", default="flybase")
 @click.option("--ngl", default=1)
-def main(abstracts, output, model_path, database, ngl):
+@click.option("--chunks", default=4)
+def main(abstracts, output, model_path, database, ngl, chunks):
     if abstracts == "fetch":
         conn = psycopg2.connect(PGDATABASE)
         cur = conn.cursor()
@@ -77,10 +78,10 @@ def main(abstracts, output, model_path, database, ngl):
             .unique("pmcid")
             .with_row_count(name="index")
         )
-        n_c = abstracts.height // 10
+        n_c = abstracts.height // chunks
         pieces = [
             abstracts.filter(pl.col("index").is_between(a * n_c, (a + 1) * n_c))
-            for a in range(11)
+            for a in range(chunks)
         ]
         for n, piece in enumerate(pieces):
             piece.write_parquet(f"{output}_{n}.pq")
