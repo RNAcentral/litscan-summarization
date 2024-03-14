@@ -145,7 +145,9 @@ def main(
 
     classified_pmcids = []
     relevant_probability = []
-    for idx, paper in tqdm(enumerate(abstracts.iter_rows()), total=abstracts.height):
+    for idx, paper in tqdm(
+        enumerate(abstracts.iter_rows(named=True)), total=abstracts.height
+    ):
         abstract = paper["abstract"]
         pmcid = paper["pmcid"]
 
