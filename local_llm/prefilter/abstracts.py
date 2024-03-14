@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import click
 import lmql
@@ -14,6 +15,16 @@ def w_pbar(pbar, func):
         return func(*args, **kwargs)
 
     return foo
+
+
+def write_output(evaluated, output):
+    df = pl.DataFrame(evaluated)
+
+    output_loc = Path(f"{output}")
+    if output_loc.exists():
+        existing = pl.read_parquet(output_loc)
+        df = existing.vstack(df).unique("pmcid")
+    df.write_parquet(output)
 
 
 @lmql.query(decoder="sample", n=1, temperature=0.1, max_len=4096)
@@ -70,7 +81,17 @@ PGDATABASE = os.getenv("PGDATABASE")
 @click.option("--ngl", default=1)
 @click.option("--chunks", default=4)
 @click.option("--gpu_number", default=0)
-def main(abstracts, output, model_path, database, ngl, chunks, gpu_number):
+@click.option("--checkpoint_frequency", default=50)
+def main(
+    abstracts,
+    output,
+    model_path,
+    database,
+    ngl,
+    chunks,
+    gpu_number,
+    checkpoint_frequency,
+):
     if abstracts == "fetch":
         conn = psycopg2.connect(PGDATABASE)
         cur = conn.cursor()
@@ -91,6 +112,12 @@ def main(abstracts, output, model_path, database, ngl, chunks, gpu_number):
         exit()
     else:
         abstracts = pl.read_parquet(abstracts)
+
+    ## Check for a previous checkpoint and resume where we left off
+    if Path(output).exists():
+        checkpointed = pl.read_parquet(output)
+        abstracts = abstracts.join(checkpointed, on="pmcid", how="anti")
+        print(f"Resuming from checkpoint, {abstracts.height} to go")
 
     ## Set environment with supplied GPU ID
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_number
@@ -116,15 +143,33 @@ def main(abstracts, output, model_path, database, ngl, chunks, gpu_number):
     # print(r)
     # exit()
 
-    with tqdm(total=abstracts.height) as pbar:
-        abstracts = abstracts.with_columns(
-            relevant_probability=pl.col("abstract").map_elements(
-                w_pbar(pbar, lambda x: classify_abstracts_df(x, model))
-            )
-        )
+    classified_pmcids = []
+    relevant_probability = []
+    for idx, paper in tqdm(enumerate(abstracts.iter_rows()), total=abstracts.height):
+        abstract = paper["abstract"]
+        pmcid = paper["pmcid"]
 
-    print(abstracts)
-    abstracts.write_parquet(output)
+        rel_prob = classify_abstracts_df(abstract, model)
+
+        classified_pmcids.append(pmcid)
+        relevant_probability.append(rel_prob)
+
+        if idx % checkpoint_frequency == 0:
+            evaluated = {
+                "pmcid": classified_pmcids,
+                "relevance_probability": relevant_probability,
+            }
+            write_output(evaluated, output)
+            ## Reset accumulating lists
+            classified_pmcids = []
+            relevant_probability = []
+
+    ## Finished, so write everything else
+    evaluated = {
+        "pmcid": classified_pmcids,
+        "relevance_probability": relevant_probability,
+    }
+    write_output(evaluated, output)
 
 
 if __name__ == "__main__":
