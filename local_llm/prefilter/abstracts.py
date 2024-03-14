@@ -45,6 +45,7 @@ def classify_abstracts_df(abstract_text, model):
     Basically a wrapper function to apply the LLM classification across a
     dataframe
     """
+
     r = classify_abstract(abstract_text, model=model)
     return r.variables["P(CLS)"][0][1]
 
@@ -68,7 +69,8 @@ PGDATABASE = os.getenv("PGDATABASE")
 @click.option("--database", default="flybase")
 @click.option("--ngl", default=1)
 @click.option("--chunks", default=4)
-def main(abstracts, output, model_path, database, ngl, chunks):
+@click.option("--gpu_number", default=0)
+def main(abstracts, output, model_path, database, ngl, chunks, gpu_number):
     if abstracts == "fetch":
         conn = psycopg2.connect(PGDATABASE)
         cur = conn.cursor()
@@ -89,6 +91,10 @@ def main(abstracts, output, model_path, database, ngl, chunks):
         exit()
     else:
         abstracts = pl.read_parquet(abstracts)
+
+    ## Set environment with supplied GPU ID
+    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_number
+
     # abstract_text = """RNase P RNA (RPR), the catalytic subunit of the essential RNase P ribonucleoprotein, removes the 5' leader from precursor tRNAs. The ancestral eukaryotic RPR is a Pol III transcript generated with mature termini. In the branch of the arthropod lineage that led to the insects and crustaceans, however, a new allele arose in which RPR is embedded in an intron of a Pol II transcript and requires processing from intron sequences for maturation. We demonstrate here that the Drosophila intronic-RPR precursor is trimmed to the mature form by the ubiquitous nuclease Rat1/Xrn2 (5') and the RNA exosome (3'). Processing is regulated by a subset of RNase P proteins (Rpps) that protects the nascent RPR from degradation, the typical fate of excised introns. Our results indicate that the biogenesis of RPR in vivo entails interaction of Rpps with the nascent RNA to form the RNase P holoenzyme and suggests that a new pathway arose in arthropods by coopting ancient mechanisms common to processing of other noncoding RNAs."""
     print(abstracts)
 
