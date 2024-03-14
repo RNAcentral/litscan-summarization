@@ -5,6 +5,7 @@ import lmql
 import polars as pl
 import psycopg2
 from tqdm import tqdm
+from transformers import AutoTokenizer
 
 
 def w_pbar(pbar, func):
@@ -97,6 +98,13 @@ def main(abstracts, output, model_path, database, ngl, chunks):
         n_gpu_layers=ngl,
         n_ctx=4096,
     )
+    tokenizer = AutoTokenizer.from_pretrained("mistralai/Mixtral-8x7B-Instruct-v0.1")
+
+    ## filter out abstracts with zero or too many tokens
+    abstracts = abstracts.with_columns(
+        n_tokens=pl.col("abstract").apply(lambda x: len(tokenizer.encode(x)))
+    )
+    abstracts = abstracts.filter(pl.col("n_tokens").is_between(100, 3000))
 
     # r = classify_abstract(abstract_text, model=model,  output_writer=lmql.printing)
     # print(r)
