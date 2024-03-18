@@ -17,7 +17,7 @@ def w_pbar(pbar, func):
     return foo
 
 
-def write_output(evaluated, output):
+def write_output(evaluated: dict[str, list], output: str) -> None:
     df = pl.DataFrame(evaluated)
 
     output_loc = Path(f"{output}")
