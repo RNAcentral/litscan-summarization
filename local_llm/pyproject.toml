@@ -13,10 +13,11 @@ langchain = "^0.1.11"
 connectorx = "^0.3.2"
 polars = "^0.20.13"
 pyarrow = "^15.0.0"
-llama-cpp-python = "^0.2.55"
+llama-cpp-python = "^0.2.56"
 tqdm = "^4.66.2"
 click = "^8.1.7"
 psycopg2-binary = "^2.9.9"
+seaborn = "^0.13.2"
 
 
 [build-system]
