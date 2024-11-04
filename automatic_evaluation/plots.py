@@ -25,6 +25,8 @@ def anonymise_data(data):
         .when(pl.col("user_id").eq("Andrew"))
         .then("Rater_2")
         .when(pl.col("user_id").eq("Alex"))
+        .then("Rater_4")
+        .when(pl.col("user_id").eq("Sam"))
         .then("Rater_3")
         .alias("user_id")
     )
@@ -131,8 +133,7 @@ def scatterFilter(x, y, **kwargs):
 )
 @click.option(
     "--rna_type_distribution",
-    is_flag=True,
-    default=False,
+    default=None,
     help="Plot RNA type distribtion",
 )
 @click.option(
@@ -195,49 +196,67 @@ def main(
     pl.Config.set_tbl_cols(1000)
     output_path = Path(output_path)
 
-    basedir = "/Users/agreen/code/litscan-summarization/automatic_evaluation"
+    basedir = "/Users/agreen/code/litscan-summarization/data_wrangling"
 
-    # data = pl.read_parquet(
-    #     f"{basedir}/with_rouge.parquet"
-    # )  # .filter(pl.col("selection_method").eq("round-robin")).with_columns(context_size=pl.col("context").str.lengths())
-    # # .sort("rouge2").filter(pl.col("rouge2").lt(0.71) & pl.col("rougeL").lt(0.8) & pl.col("rouge1").lt(0.8)) #.to_pandas()
-    # rouge_data = data.melt(
-    #     id_vars="ent_id", value_vars=["rouge1", "rouge2", "rougeL"]
-    # ).rename({"variable": "rouge-type", "value": "rouge"})
+    _data = pl.read_parquet(f"{basedir}/gpt4_rouge.pq").rename(
+        {"ent_id": "rna_id"}
+    )  # .filter(pl.col("selection_method").eq("round-robin")).with_columns(context_size=pl.col("context").str.lengths())
+    # .sort("rouge2").filter(pl.col("rouge2").lt(0.71) & pl.col("rougeL").lt(0.8) & pl.col("rouge1").lt(0.8)) #.to_pandas()
+    rouge_data = _data.melt(
+        id_vars="rna_id", value_vars=["rouge1", "rouge2", "rougeL"]
+    ).rename({"variable": "rouge-type", "value": "rouge"})
 
-    bert_data = pl.read_parquet(f"{basedir}/with_bert.parquet").with_columns(
-        dummy=pl.lit("f1")
-    )
-    bert_data_fb = (
-        pl.read_parquet(f"{basedir}/fb_with_bert.parquet")
-        .with_columns(
-            pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
+    if gpt4:
+        bert_data = (
+            pl.read_parquet(f"{basedir}/gpt4_bert.pq")
+            .with_columns(dummy=pl.lit("f1"))
+            .rename({"ent_id": "rna_id"})
         )
-        .with_columns(display=pl.col("feedback").gt(2))
-        .with_columns(dummy=pl.lit("f1"))
-        .rename({"ent_id": "rna_id"})
-        .select(["rna_id", "f1"])
-        .unique("rna_id")
-    )
 
-    rouge_data_fb = (
-        pl.read_parquet(f"{basedir}/fb_with_rouge.parquet")
-        .with_columns(
-            pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
+    else:
+        bert_data = (
+            pl.read_parquet(f"{basedir}/fb_with_bert.parquet")
+            .with_columns(dummy=pl.lit("f1"))
+            .rename({"ent_id": "rna_id"})
         )
-        .with_columns(display=pl.col("feedback").gt(2))
-        .with_columns(dummy=pl.lit("rouge"))
-        # .rename({"ent_id": "rna_id"})
-        .select(["rna_id", "rouge1", "rouge2", "rougeL"])
-        .unique("rna_id")
-    )
+        bert_data_fb = (
+            pl.read_parquet(f"{basedir}/fb_with_bert.parquet")
+            .with_columns(
+                pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
+            )
+            .with_columns(display=pl.col("feedback").gt(2))
+            .with_columns(dummy=pl.lit("f1"))
+            .rename({"ent_id": "rna_id"})
+            .select(["rna_id", "f1"])
+            .unique("rna_id")
+        )
+
+    # rouge_data_fb = (
+    #     pl.read_parquet(f"{basedir}/fb_with_rouge.parquet")
+    #     .with_columns(
+    #         pl.col("user_id").apply(lambda x: "Nancy" if x == "anonymous" else x)
+    #     )
+    #     .with_columns(display=pl.col("feedback").gt(2))
+    #     .with_columns(dummy=pl.lit("rouge"))
+    #     # .rename({"ent_id": "rna_id"})
+    #     .select(["rna_id", "rouge1", "rouge2", "rougeL"])
+    #     .unique("rna_id")
+    # )
 
     if gpt4:
         fb_data = (
-            pl.read_parquet("all_feedback_GPT4.pq")
+            pl.read_parquet(f"{basedir}/all_feedback_GPT4.pq")
             .with_columns(display=pl.col("feedback").gt(2))
             .with_columns(dummy=pl.lit("1"))
         )
+        sam_data = (
+            pl.read_csv(f"{basedir}/sam.csv")
+            .with_columns(display=pl.col("feedback").gt(2))
+            .with_columns(dummy=pl.lit("1"))
+        )
+        ## Only use the miRNA ratings from sam
+        sam_data = sam_data.filter(pl.col("summary_id").is_in([406, 423, 427]).is_not())
+        fb_data = fb_data.vstack(sam_data)
         fb_data = fb_data.filter(pl.col("user_id") != "None")
         fb_data = fb_data.unique(subset=["rna_id", "user_id"]).sort(by="summary_id")
     else:
@@ -254,10 +273,24 @@ def main(
     average_rating = fb_data.groupby("summary_id").agg(
         pl.col("feedback").mean().alias("average")
     )
-
+    print(fb_data)
+    print(bert_data)
+    rouge_data_fb = _data.join(
+        fb_data.select(["rna_id", "user_id", "feedback", "dummy"]),
+        on=pl.col("rna_id").str.to_uppercase(),
+    ).select(["rna_id", "rouge1", "rouge2", "rougeL"])
+    bert_data_fb = bert_data.join(
+        fb_data.select(["rna_id", "user_id", "feedback", "dummy"]),
+        on=pl.col("rna_id").str.to_uppercase(),
+    ).select(["rna_id", "f1"])
+    # pl.Config.set_tbl_rows(1000)
+    # print(rouge_data_fb.join(bert_data_fb, on="rna_id").join(fb_data, on=pl.col("rna_id").str.to_uppercase()).unique(["rna_id", "user_id"]))
+    # exit()
+    # print(fb_data.join(bert_data_fb, on=pl.col("rna_id").str.to_uppercase()).join(rouge_data_fb, on=pl.col("rna_id").str.to_uppercase()))
+    # exit()
     second_batch = (
-        fb_data.join(bert_data_fb, on="rna_id")
-        .join(rouge_data_fb, on="rna_id")
+        fb_data.join(bert_data_fb, on=pl.col("rna_id").str.to_uppercase())
+        .join(rouge_data_fb, on=pl.col("rna_id").str.to_uppercase())
         .filter(pl.col("summary_id").gt(300))
         .with_columns(dummy=pl.lit("f1"))
         .select(
@@ -275,6 +308,7 @@ def main(
         .unique(["rna_id", "user_id"])
         .drop_nulls("user_id")
     )
+    print(second_batch)
 
     # bert_data_fb = anonymise_data(bert_data_fb)
 
@@ -284,13 +318,12 @@ def main(
         .filter(pl.col("user_id").list.lengths().gt(2))
         .select("rna_id")
     )
-
     rouge_data_fb = (
         second_batch.melt(id_vars="rna_id", value_vars=["rouge1", "rouge2", "rougeL"])
         .rename({"variable": "rouge-type", "value": "rouge"})
         .join(second_batch, on="rna_id")
         .select(["rna_id", "rouge-type", "rouge", "feedback", "user_id"])
-        .filter(pl.col("user_id").is_in(["Rater_0", "Rater_1", "Rater_2"]))
+        .filter(pl.col("user_id").is_in(["Rater_0", "Rater_1", "Rater_2", "Rater_3"]))
         .unique(["rna_id", "rouge-type", "rouge", "user_id"])
     )
 
@@ -310,7 +343,8 @@ def main(
     # .apply(lambda x: x.with_columns(pl.struct(["user_id", "feedback"]).apply(lambda y: {y['user_id']: y["feedback"]}).alias("result")).unnest("result"))
 
     if rna_type_distribution:
-        rna_type_data = pl.read_parquet("../staging_area/selected_sentences.parquet")
+        # "../staging_area/selected_sentences.parquet"
+        rna_type_data = pl.read_parquet(rna_type_distribution)
 
     sns.set_theme(style="whitegrid")
 
@@ -319,7 +353,7 @@ def main(
 
         g = sns.PairGrid(
             rating_data_fb.to_pandas(),
-            vars=["Rater_0", "Rater_1", "Rater_2"],
+            vars=["Rater_0", "Rater_1", "Rater_2", "Rater_3"],
             corner=True,
         )
         g.map_diag(labelled_hist)
@@ -337,7 +371,7 @@ def main(
         plt.show()
 
     if feedback_box_plot:
-        sns.boxplot(data=fb_data, x="user_id", y="feedback")
+        sns.boxplot(data=fb_data.to_pandas(), x="user_id", y="feedback")
         sns.stripplot(
             x="user_id", y="feedback", data=fb_data, size=4, color=".3", linewidth=0
         )
@@ -437,7 +471,9 @@ def main(
         )
         counts = counts.with_columns(pc=pl.col("count") / rna_type_data.height * 100)
         print(counts.sum())
-        ax = sns.barplot(counts.to_pandas(), x="count", y="simple_type")
+        # plt.figure(figsize=(10,10))
+        sns.set(font_scale=1.5)
+        ax = sns.barplot(counts.to_pandas(), x="count", y="simple_type", color="k")
         plt.ylabel("")
 
         labels_large = [
@@ -449,7 +485,7 @@ def main(
             for t in counts.get_column("count").to_numpy()
         ]
         ax.bar_label(
-            ax.containers[0], labels_large, padding=-90, color="white"
+            ax.containers[0], labels_large, padding=-120, color="white"
         )  # , fmt="%.0f")
         ax.bar_label(ax.containers[0], labels_small, padding=5)
         plt.savefig(output_path / "RNA_type_distribution.png", bbox_inches="tight")
@@ -457,11 +493,12 @@ def main(
         plt.show()
 
     if feedback_correlation:
+
         g = sns.FacetGrid(
             rouge_data_fb.to_pandas(),
             col="rouge-type",
             row="user_id",
-            row_order=["Rater_0", "Rater_1", "Rater_2"],
+            row_order=["Rater_0", "Rater_1", "Rater_2", "Rater_3"],
             col_order=["rouge1", "rouge2", "rougeL"],
             margin_titles=True,
         )
@@ -499,7 +536,7 @@ def main(
             second_batch.to_pandas(),
             col="user_id",
             row="dummy",
-            col_order=["Rater_0", "Rater_1", "Rater_2"],
+            col_order=["Rater_0", "Rater_1", "Rater_2", "Rater_3"],
             row_order=["f1"],
             margin_titles=True,
         )
@@ -533,8 +570,8 @@ def main(
 
     if bert_rouge_correlation:
         print(rouge_data)
-        combodata = bert_data.select(["ent_id", "f1", "dummy"]).join(
-            rouge_data, left_on="ent_id", right_on="ent_id"
+        combodata = bert_data.select(["rna_id", "f1", "dummy"]).join(
+            rouge_data, left_on="rna_id", right_on="rna_id"
         )
         print(
             combodata.filter(pl.col("rouge-type").eq("rouge1")).select(["f1", "rouge"])
@@ -555,7 +592,7 @@ def main(
             print(row_val, col_val)
             corr_data = (
                 combodata.filter(pl.col("rouge-type").eq(col_val))
-                .unique(["ent_id"])
+                .unique(["rna_id"])
                 .select(["f1", "rouge"])
             )
             fb = corr_data.get_column("rouge").to_numpy()
@@ -588,7 +625,7 @@ def main(
             fb_data.to_pandas(),
             col="user_id",
             row="dummy",
-            col_order=["Rater_0", "Rater_1", "Rater_2"],
+            col_order=["Rater_0", "Rater_1", "Rater_2", "Rater_3"],
             # row_order=["feedback"],
             margin_titles=False,
         )
@@ -605,11 +642,13 @@ def main(
         plt.figure()
         from matplotlib.ticker import MaxNLocator
 
+        sns.set(font_scale=1.5)
         ax = sns.histplot(
             average_rating.to_pandas(),
             x="average",
             bins=[0, 1, 2, 3, 4, 5, 6],
             discrete=True,
+            color="k",
         )
         ticks = [np.ceil(y) for y in ax.get_yticks()]
         ax.set_yticks(ticks)
@@ -617,8 +656,10 @@ def main(
         ax.set_xlim((0, 6))
         ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         ax.set_xlabel("Average Feedback")
+        plt.tight_layout()
         plt.savefig(output_path / "feedback_histograms_average.png")
         plt.show()
+        exit()
 
         modes = [
             "hallucinated",
@@ -856,7 +897,7 @@ def main(
             by="count", descending=True
         )
         type_rating_data = type_rating_data.unique(
-            subset=["urs_taxid", "Rater_0", "Rater_1", "Rater_2"]
+            subset=["urs_taxid", "Rater_0", "Rater_1", "Rater_2", "Rater_3"]
         )
         print(
             type_rating_data.select(
@@ -868,7 +909,7 @@ def main(
             type_rating_data.to_pandas(),
             col="user_id",
             row="simple_type",
-            col_order=["Rater_0", "Rater_1", "Rater_2"],
+            col_order=["Rater_0", "Rater_1", "Rater_2", "Rater_3"],
             hue="simple_type",
             hue_order=["lncRNA", "miRNA", "pre_miRNA", "snoRNA", "Other"],
             # row_order=["count"],
