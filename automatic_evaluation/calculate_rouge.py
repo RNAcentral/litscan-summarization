@@ -6,13 +6,13 @@ import nltk
 import polars as pl
 from rouge_score import rouge_scorer
 
-import evaluate
+# import evaluate
 
 scorer = rouge_scorer.RougeScorer(
     ["rouge1", "rouge2", "rougeL", "rougeLsum"], use_stemmer=True
 )
 
-metric = evaluate.load("rouge")
+# metric = evaluate.load("rouge")
 
 
 def calculate_rouge(row):
@@ -57,7 +57,7 @@ def main(input_file, output_file, feedback_file=None):
             )
             .alias("result")
         ).unnest("result")
-        fb_data.write_parquet("fb_with_rouge.parquet")
+        fb_data.write_parquet("fb_with_rouge_gpt4.parquet")
 
 
 if __name__ == "__main__":
