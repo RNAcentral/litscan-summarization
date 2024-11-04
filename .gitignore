@@ -18,3 +18,5 @@ dumps/*
 .DS_Store
 .python-version
 100/*
+*.txt
+*.csv
