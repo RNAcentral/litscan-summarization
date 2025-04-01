@@ -46,6 +46,24 @@ def get_model(source: str, kwargs):
         logging.info("Initializing a locally hosted model ")
         assert "model_path" in kwargs, "model_path must be specified for a local model"
         llm = LlamaCpp(
-            model_path=kwargs["model_path"], temperature=temperature, n_ctx=8192
+            model_path=kwargs["model_path"],
+            temperature=temperature,
+            n_ctx=8192,
+            n_gpu_layers=-1,
         )
+    elif source.lower() == "local-api":
+        ## This will point to an API using llama-server or similar
+        ## Expect the API endpoint to be in kwargs["model_path"]
+        logging.info("Initializing a locally hosted model API")
+        assert "model_path" in kwargs, "model_path must be specified for a local model"
+        print(kwargs)
+        llm = ChatOpenAI(
+            model_name="local",
+            temperature=temperature,
+            model_kwargs=kwargs,
+            base_url=kwargs["model_path"],
+            openai_api_base=kwargs["model_path"],
+            openai_api_key="abc123",
+        )
+
     return llm
