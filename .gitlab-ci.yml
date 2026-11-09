@@ -1,0 +1,30 @@
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.latest.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/SAST-IaC.gitlab-ci.yml   # Dockerfiles + k8s manifests (KICS)
+
+# No Container-Scanning template: no workflow builds or publishes a Docker
+# image for this repo, so there is nothing for container_scanning to pull.
+
+variables:
+  GIT_STRATEGY: clone
+  DS_ENFORCE_NEW_ANALYZER: 'true'
+  GITLAB_ADVANCED_SAST_ENABLED: 'true'
+
+sast:
+  tags:
+    - dind
+
+gitlab-advanced-sast:
+  variables:
+    SEARCH_MAX_DEPTH: 20
+    SAST_ANALYZER_IMAGE_TAG: '2.50'
+
+secret_detection:
+  tags:
+    - dind
+
+dependency_scanning:
+  tags:
+    - dind
