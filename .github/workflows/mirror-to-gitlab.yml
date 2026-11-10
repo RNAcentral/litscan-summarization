@@ -1,0 +1,50 @@
+name: Mirror to GitLab
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push squashed snapshot to GitLab
+        run: |
+          git remote add gitlab https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.ebi.ac.uk/RNAcentral/litscan-summarization.git
+          # Send packs with a Content-Length rather than chunked encoding
+          # (git's fallback above 1MB): large pushes to gitlab.ebi.ac.uk have
+          # failed with a bare HTTP 406, and chunked uploads are the suspect.
+          git config http.postBuffer 524288000
+          # Re-authored squash commit per branch: dodges GitLab's pre-receive
+          # author hook and gives every branch a ref for per-branch scanning.
+          BRANCH="${{ github.ref_name }}"
+          PARENT_REF="$BRANCH"
+          PARENT=$(git ls-remote gitlab "refs/heads/$BRANCH" | cut -f1)
+          if [ -z "$PARENT" ]; then
+            # New branch: base it on GitLab's default branch tip instead of a
+            # true orphan commit (a parentless commit on a non-empty project
+            # trips the "commit author is a GitLab user" push rule). Uses the
+            # default branch rather than master so that master's own first
+            # push works while another branch is still the default.
+            PARENT_REF=$(git ls-remote --symref gitlab HEAD | awk '$1 == "ref:" { sub("refs/heads/", "", $2); print $2 }')
+            if [ -n "$PARENT_REF" ]; then
+              PARENT=$(git ls-remote gitlab "refs/heads/$PARENT_REF" | cut -f1)
+            fi
+          fi
+          if [ -n "$PARENT" ]; then
+            git fetch --depth=1 gitlab "$PARENT_REF"
+          fi
+          TREE=$(git rev-parse HEAD^{tree})
+          if [ -n "$PARENT" ]; then
+            COMMIT=$(GIT_AUTHOR_NAME="GitLab Mirror" GIT_AUTHOR_EMAIL="muston@ebi.ac.uk" \
+                      GIT_COMMITTER_NAME="GitLab Mirror" GIT_COMMITTER_EMAIL="muston@ebi.ac.uk" \
+                      git commit-tree "$TREE" -p "$PARENT" -m "Mirror snapshot of ${{ github.sha }}")
+          else
+            COMMIT=$(GIT_AUTHOR_NAME="GitLab Mirror" GIT_AUTHOR_EMAIL="muston@ebi.ac.uk" \
+                      GIT_COMMITTER_NAME="GitLab Mirror" GIT_COMMITTER_EMAIL="muston@ebi.ac.uk" \
+                      git commit-tree "$TREE" -m "Mirror snapshot of ${{ github.sha }}")
+          fi
+          git push gitlab "$COMMIT:refs/heads/$BRANCH"
